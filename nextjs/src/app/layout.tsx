@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Analytics } from '@vercel/analytics/next';
-import CookieConsent from "@/components/Cookies";
-import { GoogleAnalytics } from '@next/third-parties/google'
 import { Nunito_Sans } from "next/font/google";
 
 const nunito = Nunito_Sans({
@@ -24,7 +22,7 @@ export default function RootLayout({
   if(!theme) {
     theme = "theme-qh"
   }
-  const gaID = process.env.NEXT_PUBLIC_GOOGLE_TAG;
+  {/* const gaID = process.env.NEXT_PUBLIC_GOOGLE_TAG; */}
   return (
     <html lang="en" className={nunito.variable}>
       <body className={`${theme} font-sans`}>
