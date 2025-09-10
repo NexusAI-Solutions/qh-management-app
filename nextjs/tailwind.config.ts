@@ -9,6 +9,10 @@ const config: Config = {
   ],
   theme: {
   	extend: {
+		fontFamily: {
+			sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "Noto Sans", "sans-serif", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"],
+			heading: ["var(--font-heading)", "ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "Noto Sans", "sans-serif", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"]
+		},
   		colors: {
   			primary: {
   				'50': 'var(--color-primary-50)',
@@ -39,6 +43,7 @@ const config: Config = {
   				foreground: 'hsl(var(--secondary-foreground))'
   			},
   			background: 'hsl(var(--background))',
+			backgroundSecondary: 'var(--background-blue)',
   			foreground: 'hsl(var(--foreground))',
   			card: {
   				DEFAULT: 'hsl(var(--card))',
