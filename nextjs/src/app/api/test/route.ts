@@ -15,11 +15,5 @@ export async function GET() {
     return notFound();
   }
 
-  // (Optional) If you want to enforce MFA level for this endpoint:
-  // const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  // if (aal?.nextLevel === "aal2" && aal?.nextLevel !== aal?.currentLevel) {
-  //   return NextResponse.json({ error: "MFA required" }, { status: 403 });
-  // }
-
   return NextResponse.json({ message: "Hallo world" });
 }

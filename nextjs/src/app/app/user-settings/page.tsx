@@ -57,7 +57,7 @@ export default function UserSettingsPage() {
 
 
     return (
-        <div className="space-y-6 p-6">
+        <div className="space-y-6 py-6 page-small">
             <div className="space-y-2">
                 <h1 className="text-3xl font-bold tracking-tight">User Settings</h1>
                 <p className="text-muted-foreground">
