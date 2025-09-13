@@ -232,7 +232,7 @@ export default function OrdersPage() {
                           <TableCell>{formatDate(created)}</TableCell>
                           <TableCell>
                             <Link href={AIRTABLE_VIEW_URL(r.id)} target="_blank" rel="noopener noreferrer">
-                              <Button variant="outline" size="sm">
+                              <Button variant="intable" size="sm">
                                 <Eye className="h-4 w-4 mr-1" />
                                 Bekijk
                               </Button>
@@ -277,7 +277,7 @@ export default function OrdersPage() {
                         </div>
 
                         <Link href={AIRTABLE_VIEW_URL(r.id)} target="_blank" rel="noopener noreferrer">
-                          <Button variant="outline" size="sm" className="text-xs bg-transparent">
+                          <Button variant="intable" size="sm" className="text-xs">
                             <Eye className="h-3 w-3 mr-1" />
                             Bekijk
                           </Button>
