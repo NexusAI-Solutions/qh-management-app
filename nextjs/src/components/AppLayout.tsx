@@ -9,7 +9,7 @@ import {
     X,
     ChevronDown,
     LogOut,
-    Key, MailQuestion
+    Package, MailQuestion
 } from 'lucide-react';
 import { useGlobal } from "@/lib/context/GlobalContext";
 import { createSPASassClient } from "@/lib/supabase/client";
@@ -28,7 +28,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             const client = await createSPASassClient();
             await client.logout();
         } catch (error) {
-            console.error('Error logging out:', error);
+            console.error('Fout bij uitloggen:', error);
         }
     };
     const handleChangePassword = async () => {
@@ -45,9 +45,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const productName = process.env.NEXT_PUBLIC_PRODUCTNAME;
 
     const navigation = [
-        { name: 'Homepage', href: '/app', icon: Home },
+        { name: 'Home', href: '/app', icon: Home },
+        { name: "Producten", href: "/app/producten", icon: Package },
         { name: "Adviesaanvragen", href: "/app/adviesaanvragen", icon: MailQuestion },
-        { name: 'User Settings', href: '/app/user-settings', icon: User },
     ];
 
     return (
@@ -55,9 +55,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <header className="bg-backgroundSecondary shadow-sm">
         <div className="px-4 sm:px-6 lg:px-8 max-w-[1600px] mx-auto">
           <div className="flex items-center justify-between h-16">
-            {/* Logo/Brand */}
+            {/* Logo/Merk */}
             <div className="flex items-center">
-              {/* Mobile menu button */}
+              {/* Mobiel menu knop */}
               <button
                 onClick={() => setMobileMenuOpen(!isMobileMenuOpen)}
                 className="md:hidden mr-3 p-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-500 transition-colors"
@@ -65,7 +65,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
 
-              {/* Logo/Brand */}
+              {/* Logo/Merk */}
               <span className="text-xl font-semibold text-white">{productName}</span>
             </div>
 
@@ -89,7 +89,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
             <div className="flex items-center space-x-4">
 
-              {/* User dropdown */}
+              {/* Gebruiker dropdown */}
               <div className="relative">
                 <button
                   onClick={() => setUserDropdownOpen(!isUserDropdownOpen)}
@@ -98,14 +98,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
                     <span className="text-white font-medium text-xs">{user ? getInitials(user.email) : "??"}</span>
                   </div>
-                  <span className="hidden sm:block">{user?.email || "Loading..."}</span>
                   <ChevronDown className="h-4 w-4" />
                 </button>
 
                 {isUserDropdownOpen && (
                   <div className="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg border z-50">
                     <div className="p-2 border-b border-gray-100">
-                      <p className="text-xs text-gray-500">Signed in as</p>
+                      <p className="text-xs text-gray-500">Ingelogd als</p>
                       <p className="text-sm font-medium text-gray-900 truncate">{user?.email}</p>
                     </div>
                     <div className="py-1">
@@ -116,8 +115,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                         }}
                         className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                       >
-                        <Key className="mr-3 h-4 w-4 text-gray-400" />
-                        Change Password
+                        <User className="mr-3 h-4 w-4 text-gray-400" />
+                        Instellingen
                       </button>
                       <button
                         onClick={() => {
@@ -127,7 +126,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                         className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                       >
                         <LogOut className="mr-3 h-4 w-4 text-red-400" />
-                        Sign Out
+                        Uitloggen
                       </button>
                     </div>
                   </div>

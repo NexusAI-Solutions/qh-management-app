@@ -25,7 +25,7 @@ export default function RootLayout({
   {/* const gaID = process.env.NEXT_PUBLIC_GOOGLE_TAG; */}
   return (
     <html lang="en" className={nunito.variable}>
-      <body className={`${theme} font-sans`}>
+      <body className={`${theme} font-sans bg-background`}>
         {children}
         <Analytics />
         {/* <CookieConsent />

@@ -42,7 +42,7 @@ const config: Config = {
   				DEFAULT: 'hsl(var(--secondary))',
   				foreground: 'hsl(var(--secondary-foreground))'
   			},
-  			background: 'hsl(var(--background))',
+  			background: 'var(--background)',
 			backgroundSecondary: 'var(--background-blue)',
   			foreground: 'hsl(var(--foreground))',
   			card: {

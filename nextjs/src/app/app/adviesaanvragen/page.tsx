@@ -57,11 +57,17 @@ const STORE_BADGE_CLASSES = [
   "bg-cyan-100 text-cyan-800 hover:!bg-cyan-100 hover:!text-cyan-800",
 ];
 
+const storeColorCache = new Map<string, string>();
+
 function getStoreBadgeClass(store?: string) {
   if (!store) return "bg-gray-100 text-gray-800 hover:!bg-gray-100 hover:!text-gray-800";
+  const hit = storeColorCache.get(store);
+  if (hit) return hit;
   let hash = 0;
   for (let i = 0; i < store.length; i++) hash = (hash * 31 + store.charCodeAt(i)) >>> 0;
-  return STORE_BADGE_CLASSES[hash % STORE_BADGE_CLASSES.length];
+  const cls = STORE_BADGE_CLASSES[hash % STORE_BADGE_CLASSES.length];
+  storeColorCache.set(store, cls);
+  return cls;
 }
 
 /* ---------- Skeletons ---------- */
@@ -161,15 +167,19 @@ export default function OrdersPage() {
   return (
     <div className="py-3 sm:py-6">
       <div className="mb-4 sm:mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Aanvragen</h1>
+        <h1>Aanvragen</h1>
         <p className="text-sm sm:text-base text-gray-600">
-          Overzicht van alle aanvragen met <span className="font-medium">Status = Ontvangen</span>
+          Overzicht van alle aanvragen met Status = Ontvangen
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg sm:text-xl">Recente Aanvragen</CardTitle>
+          <CardTitle className="text-lg sm:text-xl">
+            Openstaande adviesaanvragen
+            {loading && " (…)"} 
+            {!loading && !error && data && ` (${data.records.length})`}
+          </CardTitle>
         </CardHeader>
 
         <CardContent className="p-0 sm:p-6">
