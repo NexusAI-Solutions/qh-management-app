@@ -10,7 +10,7 @@ const nunito = Nunito_Sans({
 
 export const metadata: Metadata = {
   title: process.env.NEXT_PUBLIC_PRODUCTNAME,
-  description: "The best way to build your SaaS product.",
+  description: "Quality Heating management app. Nexus-AI.",
 };
 
 export default function RootLayout({
