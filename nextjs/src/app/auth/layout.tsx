@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 export default function AuthLayout({
                                        children,
                                    }: {
@@ -31,6 +33,12 @@ export default function AuthLayout({
                             <p className="text-primary-100 text-sm">
                                 Speciaal gemaakt voor {productName}
                             </p>
+                            <Image
+                                src="/331777d9e2a04a46bf61b1f6082a8ddc.png"
+                                alt="Lijkzak"
+                                width={300}
+                                height={300}
+                            />
                         </div>
                     </div>
                 </div>
