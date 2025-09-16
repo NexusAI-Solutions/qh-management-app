@@ -52,7 +52,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
     return (
     <div className="min-h-screen bg-background">
-      <header className="bg-backgroundSecondary shadow-sm">
+      <header className="bg-backgroundSecondary shadow-sm fixed top-0 left-0 right-0 z-50">
         <div className="px-4 sm:px-6 lg:px-8 max-w-[1600px] mx-auto">
           <div className="flex items-center justify-between h-16">
             {/* Logo/Merk */}
@@ -77,7 +77,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     key={item.name}
                     href={item.href}
                     className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                      isActive ? "bg-blue-700 text-white" : "text-blue-100 hover:bg-blue-500 hover:text-white"
+                      isActive ? "bg-blue-700 text-white" : "text-blue-100 hover:bg-accent hover:text-white"
                     }`}
                   >
                     <item.icon className="mr-2 h-4 w-4" />
@@ -160,7 +160,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="px-4 sm:px-6 lg:px-8 max-w-[1600px] mx-auto">{children}</main>
+      <main className="mt-16 px-4 sm:px-6 lg:px-8 max-w-[1600px] mx-auto">{children}</main>
     </div>
   )
 }
