@@ -8,6 +8,7 @@ import { ProductHeader } from "@/components/product/product-header"
 import { ContentTab } from "@/components/product/content/content-tab"
 import { PricingTab } from "@/components/product/price-management/pricing-tab"
 import { AnalyticsTab } from "@/components/product/analytics/analytics-tab"
+import Link from "next/link"
 
 // Mock product data
 const productData = {
@@ -36,10 +37,12 @@ export default function ProductDetailPage() {
       <div className="fixed top-16 left-0 right-0 z-50 border-b bg-card/50 backdrop-blur-sm py-4">
         <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 max-w-[1600px] mx-auto">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" className="text-xs md:text-sm">
-              <ArrowLeft className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-              <span className="hidden sm:inline">Terug naar Producten</span>
-              <span className="sm:hidden">Terug</span>
+            <Button asChild variant="ghost" size="sm" className="text-xs md:text-sm">
+              <Link href="/app/producten" aria-label="Terug naar Producten">
+                <ArrowLeft className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+                <span className="hidden sm:inline">Terug naar Producten</span>
+                <span className="sm:hidden">Terug</span>
+              </Link>
             </Button>
             <div className="text-xs md:text-sm text-muted-foreground hidden md:block">
               Producten / {productData.title}
