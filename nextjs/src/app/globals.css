@@ -74,6 +74,11 @@
   --color-accent-700: #6d28d9;
   --color-accent-800: #5b21b6;
   --color-accent-900: #4c1d95;
+
+  --primary: 240 100% 31.9%;          /* #0d6efd */
+  --primary-foreground: 0 0% 100%;
+  --accent: 258 90% 66%;
+  --accent-foreground: 0 0% 100%;
 }
 
 .page-small {
