@@ -17,23 +17,27 @@ interface ProductHeaderProps {
 
 export function ProductHeader({ product }: ProductHeaderProps) {
   return (
-    <div className="bg-whitebackground border-b">
-      <div className="py-6 space-y-6">
-        <div className="flex items-start gap-6">
-          {/* Product Image - removed card wrapper */}
-          <div className="h-20 w-20 relative rounded-lg overflow-hidden bg-muted flex-shrink-0">
-            <Image src={product.mainImage || "/placeholder.svg"} alt={product.title} fill className="object-cover" />
-          </div>
+<div className="bg-whitebackground">
+  <div className="py-6">
+    <div className="flex items-center gap-3">
+      {/* Product Image */}
+      <div className="h-20 w-20 relative rounded-lg overflow-hidden bg-muted flex-shrink-0">
+        <Image
+          src={product.mainImage || "/74e6e7e382d0ff5d7773ca9a87e6f6f8817a68a6.jpeg"}
+          alt={product.title}
+          fill
+          className="object-cover"
+        />
+      </div>
 
-          {/* Title and Status - moved next to image */}
-          <div className="space-y-2 flex-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold text-balance">{product.title}</h1>
-            </div>
-            <p className="text-muted-foreground">Merk: {product.brand}</p>
-          </div>
-        </div>
+      {/* Title + Brand */}
+      <div className="flex-1">
+        <h1>{product.title}</h1>
+        <p className="text-md text-muted-foreground">Merk: {product.brand}</p>
       </div>
     </div>
+  </div>
+</div>
+
   )
 }

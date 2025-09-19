@@ -11,8 +11,9 @@ import { Plus, Trash2, Edit3, Check, GripVertical } from "lucide-react"
 
 interface Variant {
   id: string
-  name: string
+  title: string
   ean: string
+  position?: number // Add position field to interface
 }
 
 interface VariantManagerProps {
@@ -20,15 +21,18 @@ interface VariantManagerProps {
 }
 
 export function VariantManager({ variants: initialVariants }: VariantManagerProps) {
-  const [variants, setVariants] = useState<Variant[]>(initialVariants)
+  const [variants, setVariants] = useState<Variant[]>(
+    initialVariants.sort((a, b) => (a.position || 999) - (b.position || 999)),
+  )
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
 
   const addVariant = () => {
     const newVariant: Variant = {
       id: `var-${Date.now()}`,
-      name: "",
+      title: "",
       ean: "",
+      position: Math.max(...variants.map((v) => v.position || 0)) + 1, // Set position for new variant
     }
     setVariants([...variants, newVariant])
     setEditingId(newVariant.id)
@@ -94,12 +98,7 @@ export function VariantManager({ variants: initialVariants }: VariantManagerProp
           <div className="flex items-center gap-3">
             <CardTitle>Product varianten</CardTitle>
           </div>
-          <Button
-            onClick={addVariant}
-            size="sm"
-            aria-label="Variant toevoegen"
-            className="sm:gap-2"
-          >
+          <Button onClick={addVariant} size="sm" aria-label="Variant toevoegen" className="sm:gap-2">
             {/* Icon only from sm and up */}
             <Plus className="h-4 w-4 hidden sm:inline" aria-hidden="true" />
 
@@ -131,14 +130,14 @@ export function VariantManager({ variants: initialVariants }: VariantManagerProp
 
               <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor={`name-${variant.id}`} className="text-xs font-medium text-muted-foreground">
+                  <Label htmlFor={`title-${variant.id}`} className="text-xs font-medium text-muted-foreground">
                     Naam
                   </Label>
                   {editingId === variant.id ? (
                     <Input
-                      id={`name-${variant.id}`}
-                      value={variant.name}
-                      onChange={(e) => updateVariant(variant.id, "name", e.target.value)}
+                      id={`title-${variant.id}`}
+                      value={variant.title}
+                      onChange={(e) => updateVariant(variant.id, "title", e.target.value)}
                       placeholder="bijv. Zwart, Wit, Large"
                       className="h-7 text-sm focus:ring-2 focus:ring-primary/20"
                       autoFocus
@@ -148,7 +147,7 @@ export function VariantManager({ variants: initialVariants }: VariantManagerProp
                       className="flex items-center cursor-pointer hover:text-primary transition-colors h-7"
                       onClick={() => saveAndEdit(variant.id)}
                     >
-                      <span className="text-sm font-medium">{variant.name || `Variant ${index + 1}`}</span>
+                      <span className="text-sm font-medium">{variant.title || `Variant ${index + 1}`}</span>
                     </div>
                   )}
                 </div>

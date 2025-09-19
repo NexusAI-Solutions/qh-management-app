@@ -118,14 +118,14 @@ interface AnalyticsTabProps {
     title: string
     variants: Array<{
       id: string
-      name: string
+      title: string
       ean: string
     }>
   }
 }
 
 export function AnalyticsTab({ product }: AnalyticsTabProps) {
-  const [selectedVariant, setSelectedVariant] = useState(product.variants[0]?.name || "Black")
+  const [selectedVariant, setSelectedVariant] = useState("Black")
 
   const currentData = variantData[selectedVariant as keyof typeof variantData]
 
@@ -142,8 +142,8 @@ export function AnalyticsTab({ product }: AnalyticsTabProps) {
           </SelectTrigger>
           <SelectContent>
             {product.variants.map((variant) => (
-              <SelectItem key={variant.id} value={variant.name}>
-                {variant.name}
+              <SelectItem key={variant.id} value={variant.title}>
+                {variant.title}
               </SelectItem>
             ))}
           </SelectContent>

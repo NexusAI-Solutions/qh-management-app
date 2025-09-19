@@ -21,29 +21,44 @@ const languages = [
 interface ContentData {
   title: string
   description: string
+  content: string
 }
 
-export function MultilingualContent() {
+interface MultilingualContentProps {
+  productTitle?: string
+  productDescription?: string
+  productContent?: string
+  productImages?: string[]
+}
+
+export function MultilingualContent({
+  productTitle = "",
+  productDescription = "",
+  productContent = "",
+  productImages = [],
+}: MultilingualContentProps) {
   const [content, setContent] = useState<Record<string, ContentData>>({
     nl: {
-      title: "Premium Draadloze Koptelefoon",
+      title: productTitle,
       description:
-        "Ervaar superieure geluidskwaliteit met onze premium draadloze koptelefoon. Uitgerust met actieve ruisonderdrukking en 30 uur batterijduur.",
+        productDescription,
+      content:
+        productContent,
     },
     de: {
-      title: "Premium Wireless Kopfhörer",
-      description:
-        "Erleben Sie überlegene Klangqualität mit unserem Premium-Wireless-Kopfhörer. Ausgestattet mit aktiver Geräuschunterdrückung und 30 Stunden Akkulaufzeit.",
+      title: "",
+      description: "",
+      content: "",
     },
     fr: {
-      title: "Casque Sans Fil Premium",
-      description:
-        "Découvrez une qualité sonore supérieure avec notre casque sans fil premium. Équipé d'une suppression active du bruit et de 30 heures d'autonomie.",
+      title: "",
+      description: "",
+      content: "",
     },
     es: {
-      title: "Auriculares Inalámbricos Premium",
-      description:
-        "Experimenta una calidad de sonido superior con nuestros auriculares inalámbricos premium. Equipados con cancelación activa de ruido y 30 horas de batería.",
+      title: "",
+      description: "",
+      content: "",
     },
   })
 
@@ -61,17 +76,19 @@ export function MultilingualContent() {
 
   const translateContent = async (targetLang: string) => {
     const dutchContent = content.nl
-    if (!dutchContent.title && !dutchContent.description) return
+    if (!dutchContent.title && !dutchContent.description && !dutchContent.content) return
 
     // Simulate translation (in real app, this would call a translation API)
     const translatedTitle = `${dutchContent.title} (${targetLang.toUpperCase()})`
     const translatedDescription = `${dutchContent.description} (${targetLang.toUpperCase()})`
+    const translatedContent = `${dutchContent.content} (${targetLang.toUpperCase()})`
 
     setContent((prev) => ({
       ...prev,
       [targetLang]: {
         title: translatedTitle,
         description: translatedDescription,
+        content: translatedContent,
       },
     }))
   }
@@ -130,6 +147,19 @@ export function MultilingualContent() {
                     <div className="space-y-2">
                       <Label htmlFor={`description-${lang.code}`}>Beschrijving</Label>
                       <div className="border rounded-lg">
+                        <Textarea
+                          id={`description-${lang.code}`}
+                          value={content[lang.code]?.description || ""}
+                          onChange={(e) => updateContent(lang.code, "description", e.target.value)}
+                          placeholder={`Product description in ${lang.name}`}
+                          className="min-h-16 border-0 focus-visible:ring-0"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor={`content-${lang.code}`}>Content</Label>
+                      <div className="border rounded-lg">
                         {/* Rich Text Toolbar */}
                         <div className="flex items-center gap-1 p-2 border-b bg-muted/50">
                           <Button size="sm" variant="ghost">
@@ -146,11 +176,11 @@ export function MultilingualContent() {
                           </Button>
                         </div>
                         <Textarea
-                          id={`description-${lang.code}`}
-                          value={content[lang.code]?.description || ""}
-                          onChange={(e) => updateContent(lang.code, "description", e.target.value)}
-                          placeholder={`Product description in ${lang.name}`}
-                          className="min-h-128 border-0 focus-visible:ring-0"
+                          id={`content-${lang.code}`}
+                          value={content[lang.code]?.content || ""}
+                          onChange={(e) => updateContent(lang.code, "content", e.target.value)}
+                          placeholder={`Product content in ${lang.name}`}
+                          className="min-h-64 border-0 focus-visible:ring-0"
                         />
                       </div>
                     </div>
@@ -161,7 +191,7 @@ export function MultilingualContent() {
           </div>
 
           <div className="lg:col-span-1">
-            <ImageManager />
+            <ImageManager productImages={productImages} />
           </div>
         </div>
       </CardContent>

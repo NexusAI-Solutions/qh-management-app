@@ -7,10 +7,15 @@ interface ContentTabProps {
   product: {
     id: string
     title: string
+    description?: string
+    content?: string
+    images: string[]
+    active_channel_ids?: number[]
     variants: Array<{
       id: string
-      name: string
+      title: string
       ean: string
+      position: number
     }>
   }
 }
@@ -22,13 +27,18 @@ export function ContentTab({ product }: ContentTabProps) {
       {/* Variant Management - 1/3 width */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Website Status Management */}
-        <WebsiteStatusManager />
+        <WebsiteStatusManager product={product} />
         {/* Variant Management */}
         <VariantManager variants={product.variants} />
       </div>
 
       <div>
-        <MultilingualContent />
+        <MultilingualContent
+          productTitle={product.title}
+          productDescription={product.description}
+          productContent={product.content}
+          productImages={product.images}
+        />
       </div>
     </div>
   )

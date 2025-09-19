@@ -1,26 +1,40 @@
 "use client"
 
-import { useState, useRef, type DragEvent, type MouseEvent } from "react"
+import { useState, useRef, useEffect, type DragEvent, type MouseEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { X, Upload } from "lucide-react"
 import { cn } from "@/lib/utils"
+import Image from "next/image"  
 
 interface ImageItem {
   id: string
-  file: File
+  file?: File
   url: string
+  isProductImage?: boolean
 }
 
 interface ImageManagerProps {
   initialImages?: ImageItem[]
+  productImages?: string[]
 }
 
-export function ImageManager({ initialImages = [] }: ImageManagerProps) {
+export function ImageManager({ initialImages = [], productImages = [] }: ImageManagerProps) {
   const [images, setImages] = useState<ImageItem[]>(initialImages)
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (productImages.length > 0) {
+      const productImageItems: ImageItem[] = productImages.map((url, index) => ({
+        id: `product-${index}`,
+        url,
+        isProductImage: true,
+      }))
+      setImages(productImageItems)
+    }
+  }, [productImages])
 
   const handleFileSelect = (files: FileList | null) => {
     if (!files) return
@@ -111,7 +125,7 @@ export function ImageManager({ initialImages = [] }: ImageManagerProps) {
           <h3 className="text-lg font-semibold">Afbeeldingen ({images.length})</h3>
           <div className="grid grid-cols-4 gap-4">
             {images.map((image, index) => (
-              <div
+                <div
                 key={image.id}
                 draggable
                 onDragStart={(e) => handleDragStart(e, index)}
@@ -124,24 +138,30 @@ export function ImageManager({ initialImages = [] }: ImageManagerProps) {
                   draggedIndex === index && "opacity-50 scale-95",
                   dragOverIndex === index && draggedIndex !== index && "ring-2 ring-primary ring-offset-2",
                 )}
-              >
-                <img
+                >
+                <Image
                   src={image.url || "/placeholder.svg"}
-                  alt={image.file.name}
-                  className="w-full h-full object-cover rounded-lg border shadow-sm"
+                  alt={image.file?.name || `Product image ${index + 1}`}
+                  fill
+                  className="object-cover rounded-lg border shadow-sm"
+                  sizes="(max-width: 768px) 100vw, 25vw"
+                  style={{ objectFit: "cover" }}
+                  priority={index === 0}
                 />
 
-                <Button
+                {!image.isProductImage && (
+                  <Button
                   variant="destructive"
                   size="sm"
                   onClick={(e) => handleDeleteImage(e, image.id)}
                   className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 h-6 w-6 p-0 pointer-events-auto"
-                >
+                  >
                   <X className="h-3 w-3" />
-                </Button>
+                  </Button>
+                )}
 
                 <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-lg pointer-events-none" />
-              </div>
+                </div>
             ))}
           </div>
         </div>
@@ -170,13 +190,6 @@ export function ImageManager({ initialImages = [] }: ImageManagerProps) {
           />
         </div>
       </Card>
-
-      {/* Empty State */}
-      {images.length === 0 && (
-        <div className="text-center py-8 text-muted-foreground">
-          <p>No images uploaded yet. Upload some images to get started!</p>
-        </div>
-      )}
     </div>
   )
 }

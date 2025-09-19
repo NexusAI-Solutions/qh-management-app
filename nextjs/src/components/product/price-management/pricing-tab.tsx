@@ -8,7 +8,7 @@ interface PricingTabProps {
     id: string
     variants: Array<{
       id: string
-      name: string
+      title: string
       ean: string
     }>
   }
@@ -20,7 +20,9 @@ export function PricingTab({ product }: PricingTabProps) {
       {/* Price Management Table */}
       <PriceManagementTable variants={product.variants} />
 
+      <div className="max-w-3xl">
       <Repricer variants={product.variants} />
+      </div>
     </div>
   )
 }

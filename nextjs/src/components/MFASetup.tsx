@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Key, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import {Factor} from "@supabase/auth-js";
 import {MFAEnrollTOTPParams} from "@supabase/auth-js/src/lib/internal-types";
+import Image from 'next/image';
 
 
 interface MFASetupProps {
@@ -231,9 +232,11 @@ export function MFASetup({ onStatusChange }: MFASetupProps) {
                     <div className="space-y-4">
                         <div className="flex justify-center">
                             {qr && (
-                                <img
-                                    src={qr}
+                                <Image
+                                    src={`data:image/png;base64,${qr}`}
                                     alt="QR Code"
+                                    width={192}
+                                    height={192}
                                     className="w-48 h-48 border rounded-lg p-2"
                                 />
                             )}

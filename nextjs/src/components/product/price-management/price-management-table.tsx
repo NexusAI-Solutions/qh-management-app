@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 
 interface Variant {
   id: string
-  name: string
+  title: string
   ean: string
 }
 
@@ -102,7 +102,7 @@ export function PriceManagementTable({ variants }: { variants: Variant[] }) {
                   >
                     <td className="p-2 md:p-4">
                       <div className="space-y-1 md:space-y-2">
-                        <div className="font-medium text-xs md:text-sm">{variant.name}</div>
+                        <div className="font-medium text-xs md:text-sm">{variant.title}</div>
                         <div className="text-xs text-muted-foreground font-mono break-all">{variant.ean}</div>
                         <div className="text-xs text-muted-foreground">
                           <span className="hidden sm:inline">Inkoopprijs: </span>
