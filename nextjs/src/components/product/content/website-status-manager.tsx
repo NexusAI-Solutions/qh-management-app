@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
-import { CheckCircle, XCircle, Loader2 } from "lucide-react"
+import { CheckCircle, XCircle, Loader2, AlertTriangle } from "lucide-react"
 import { createSPAClient } from "@/lib/supabase/client"
 
 interface Channel {
@@ -14,6 +14,7 @@ interface WebsiteStatus {
   published: boolean
   enabled: boolean
   loading?: boolean
+  error?: boolean
 }
 
 interface WebsiteStatusManagerProps {
@@ -72,13 +73,19 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
     return sortedVariants[0]?.ean || null
   }, [])
 
-  const checkProductOnChannel = async (channelId: number, ean: string): Promise<boolean> => {
+  const checkProductOnChannel = async (channelId: number, ean: string): Promise<{ published: boolean, error: boolean }> => {
     try {
       const response = await fetch(`/api/channel/${channelId}/check-product?ean=${ean}`)
-      return response.status === 200
+      if (response.status === 200) {
+        return { published: true, error: false }
+      } else if (response.status === 404) {
+        return { published: false, error: false }
+      } else {
+        return { published: false, error: true }
+      }
     } catch (error) {
       console.error(`Error checking product on channel ${channelId}:`, error)
-      return false
+      return { published: false, error: true }
     }
   }
 
@@ -169,7 +176,7 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
 
         // Initialize websiteStatus with loading state for all channels
         const initialStatus: Record<number, WebsiteStatus> = channelsData?.reduce<Record<number, WebsiteStatus>>((acc, channel) => {
-          acc[channel.id] = { published: false, enabled: false, loading: true }
+          acc[channel.id] = { published: false, enabled: false, loading: true, error: false }
           return acc
         }, {}) || {}
 
@@ -178,11 +185,11 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
         // Collect all async channel checks into a promise array
         const statusUpdates = channelsData?.map(async (channel) => {
           try {
-            const published = await checkProductOnChannel(channel.id, ean)
-            return { id: channel.id, published }
+            const result = await checkProductOnChannel(channel.id, ean)
+            return { id: channel.id, ...result }
           } catch (error) {
             console.error(`Error checking channel ${channel.id}:`, error)
-            return { id: channel.id, published: false }
+            return { id: channel.id, published: false, error: true }
           }
         }) || []
 
@@ -192,8 +199,8 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
         // Update the websiteStatus state with results
         setWebsiteStatus(prevStatus => {
           const updatedStatus = { ...prevStatus }
-          results.forEach(({ id, published }) => {
-            updatedStatus[id] = { ...updatedStatus[id], published, loading: false }
+          results.forEach(({ id, published, error }) => {
+            updatedStatus[id] = { ...updatedStatus[id], published, error, loading: false }
           })
           return updatedStatus
         })
@@ -238,6 +245,8 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
                   <div className="flex items-center space-x-2">
                     {status.loading ? (
                       <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                    ) : status.error ? (
+                      <AlertTriangle className="h-5 w-5 text-yellow-500" />
                     ) : status.published ? (
                       <CheckCircle className="h-5 w-5 text-green-500" />
                     ) : (
