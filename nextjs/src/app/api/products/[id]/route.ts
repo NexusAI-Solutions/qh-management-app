@@ -43,11 +43,12 @@ interface UpdateProductBody {
 
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params   
+
   try {
-    // Await params to resolve it asynchronously
-    const { id } = await context.params; 
+
     
     const productId = id;
 
@@ -165,11 +166,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params 
   try {
-    // Await params to resolve it asynchronously
-    const { id } = await context.params;
     const productId = id;
 
     // Validate product ID
