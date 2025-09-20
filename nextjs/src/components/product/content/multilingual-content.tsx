@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -42,11 +42,21 @@ export function MultilingualContent({
   productContent = [],
   productImages = [],
 }: MultilingualContentProps) {
+  // Track the original content from the database
+  const originalContentRef = useRef<ProductContent[]>(productContent)
+  
+  // Update the ref when productContent prop changes
+  useEffect(() => {
+    originalContentRef.current = productContent
+  }, [productContent])
   
   const getContentForLocale = (locale: string): ProductContent | undefined => {
-    return productContent.find(content => 
-      content.locale?.toLowerCase() === locale.toLowerCase() ||
-      content.locale?.toLowerCase() === languages.find(l => l.code === locale)?.apiCode.toLowerCase()
+    const lang = languages.find(l => l.code === locale)
+    if (!lang) return undefined
+    
+    // Check both the language code and the API code
+    return originalContentRef.current.find(content => 
+      content.locale?.toUpperCase() === lang.apiCode.toUpperCase()
     )
   }
 
@@ -119,7 +129,17 @@ export function MultilingualContent({
 
     try {
       const contentData = content[langCode]
-      const existingContent = getContentForLocale(langCode)
+      
+      // Check if we have any content to save
+      const hasContent = contentData.title || contentData.description || contentData.content
+      
+      if (!hasContent) {
+        toast.warning(`Geen content om op te slaan voor ${lang.name}`, {
+          description: "Voeg eerst content toe voordat je opslaat.",
+        })
+        setSaveStates(prev => ({ ...prev, [langCode]: 'idle' }))
+        return
+      }
       
       const payload = {
         locale: lang.apiCode,
@@ -128,9 +148,9 @@ export function MultilingualContent({
         content: contentData.content || null,
       }
 
-      const method = existingContent ? 'PUT' : 'POST'
+      // Always use PUT - the endpoint will handle create or update
       const response = await fetch(`/api/products/${productId}/content`, {
-        method,
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -141,6 +161,22 @@ export function MultilingualContent({
         const errorData = await response.json()
         throw new Error(errorData.error || 'Failed to save content')
       }
+      
+      const savedData = await response.json()
+      
+      // Update the original content ref with the new saved data
+      const updatedOriginalContent = [...originalContentRef.current]
+      const existingIndex = updatedOriginalContent.findIndex(
+        c => c.locale?.toUpperCase() === lang.apiCode.toUpperCase()
+      )
+      
+      if (existingIndex >= 0) {
+        updatedOriginalContent[existingIndex] = savedData
+      } else {
+        updatedOriginalContent.push(savedData)
+      }
+      
+      originalContentRef.current = updatedOriginalContent
       
       setLastSavedContent(prev => ({
         ...prev,
@@ -317,7 +353,7 @@ export function MultilingualContent({
                         size="sm" 
                         className="text-xs md:text-sm"
                         onClick={() => saveContent(lang.code)}
-                        disabled={saveStates[lang.code] === 'saving'}
+                        disabled={saveStates[lang.code] === 'saving' || !hasChanges[lang.code]}
                         variant={getSaveButtonVariant(lang.code)}
                       >
                         {getSaveButtonContent(lang.code)}
