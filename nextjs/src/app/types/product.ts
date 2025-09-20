@@ -18,7 +18,7 @@ export interface ProductImage {
 export interface ProductVariant {
   id: number;
   title: string | null;
-  price: ProductPrice[] | null;
+  price?: ProductPrice[] | null;
   ean: string | null;
   position: number | null;
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { CheckCircle, XCircle, Loader2, AlertTriangle } from "lucide-react"
@@ -42,15 +42,6 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
   )
   const [updatingChannel, setUpdatingChannel] = useState<number | null>(null)
   const loadComplete = useRef(false)
-
-  const getEanFromVariants = useCallback((variants: typeof product.variants): string | null => {
-    if (!variants || variants.length === 0) return null
-    
-    const sortedVariants = [...variants].sort((a, b) => 
-      (a.position ?? 0) - (b.position ?? 0)
-    )
-    return sortedVariants[0]?.ean || null
-  }, [])
 
   const checkProductOnChannel = async (channelId: number, ean: string): Promise<{ published: boolean, error: boolean }> => {
     try {
@@ -134,6 +125,16 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
       }
       loadComplete.current = true
 
+      // Move the function inside the useEffect to avoid dependency issues
+      const getEanFromVariants = (variants: Array<{ ean?: string | null; position?: number | null }>): string | null => {
+        if (!variants || variants.length === 0) return null
+        
+        const sortedVariants = [...variants].sort((a, b) => 
+          (a.position ?? 0) - (b.position ?? 0)
+        )
+        return sortedVariants[0]?.ean || null
+      }
+
       try {
         // Fetch channels using the API endpoint
         const channelsResponse = await fetch('/api/channels')
@@ -200,7 +201,7 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
     }
 
     loadChannelsAndStatus()
-  }, [product?.variants, getEanFromVariants])
+  }, [product?.variants]) // Remove getEanFromVariants from dependencies since it's now inside the effect
 
   if (!product) {
     return (

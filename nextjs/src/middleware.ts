@@ -21,10 +21,13 @@ export async function middleware(req: NextRequest) {
   // 1) Keep session fresh globally
   const res = await updateSession(req); // ← const is fine; NextResponse is still mutable
 
-  // 2) Only enforce auth for protected paths
+  // 2) Skip auth enforcement in development environment
+  if (process.env.NODE_ENV === 'development') return res;
+
+  // 3) Only enforce auth for protected paths
   if (!isProtected(req.nextUrl.pathname)) return res;
 
-  // 3) Supabase client bound to middleware cookies (new getAll/setAll API)
+  // 4) Supabase client bound to middleware cookies (new getAll/setAll API)
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

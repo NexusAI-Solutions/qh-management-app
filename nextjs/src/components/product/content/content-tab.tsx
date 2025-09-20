@@ -22,6 +22,7 @@ export function ContentTab({ product }: ContentTabProps) {
         {/* Variant Management */}
         <VariantManager 
           variants={product.variants} 
+          productId={product.id}
         />
       </div>
 
