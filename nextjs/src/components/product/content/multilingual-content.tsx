@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Bold, Italic, List, Link, Languages } from "lucide-react"
 import { ImageManager } from "@/components/product/content/image-manager"
+import { ProductContent, ProductImage } from "@/app/types/product"
 
 const languages = [
   { code: "nl", name: "Nederlands", flag: "🇳🇱" },
@@ -25,41 +26,32 @@ interface ContentData {
 }
 
 interface MultilingualContentProps {
-  productTitle?: string
-  productDescription?: string
-  productContent?: string
-  productImages?: string[]
+  productContent?: ProductContent[]
+  productImages?: ProductImage[]
 }
 
 export function MultilingualContent({
-  productTitle = "",
-  productDescription = "",
-  productContent = "",
+  productContent = [],
   productImages = [],
 }: MultilingualContentProps) {
-  const [content, setContent] = useState<Record<string, ContentData>>({
-    nl: {
-      title: productTitle,
-      description:
-        productDescription,
-      content:
-        productContent,
-    },
-    de: {
-      title: "",
-      description: "",
-      content: "",
-    },
-    fr: {
-      title: "",
-      description: "",
-      content: "",
-    },
-    es: {
-      title: "",
-      description: "",
-      content: "",
-    },
+  // Helper function to find content for a specific locale
+  const getContentForLocale = (locale: string): ProductContent | undefined => {
+    return productContent.find(content => content.locale?.toLowerCase() === locale.toLowerCase())
+  }
+
+  const [content, setContent] = useState<Record<string, ContentData>>(() => {
+    const initialContent: Record<string, ContentData> = {}
+    
+    languages.forEach((lang) => {
+      const localeContent = getContentForLocale(lang.code)
+      initialContent[lang.code] = {
+        title: localeContent?.title || "",
+        description: localeContent?.description || "",
+        content: localeContent?.content || "",
+      }
+    })
+    
+    return initialContent
   })
 
   const [activeLanguage, setActiveLanguage] = useState("nl")
@@ -91,6 +83,19 @@ export function MultilingualContent({
         content: translatedContent,
       },
     }))
+  }
+
+  const getPlaceholder = (field: string, langName: string) => {
+    switch (field) {
+      case 'title':
+        return `Product title in ${langName}`
+      case 'description':
+        return `Product description in ${langName}`
+      case 'content':
+        return `Product content in ${langName}`
+      default:
+        return ''
+    }
   }
 
   return (
@@ -140,7 +145,7 @@ export function MultilingualContent({
                         id={`title-${lang.code}`}
                         value={content[lang.code]?.title || ""}
                         onChange={(e) => updateContent(lang.code, "title", e.target.value)}
-                        placeholder={`Product title in ${lang.name}`}
+                        placeholder={getPlaceholder('title', lang.name)}
                       />
                     </div>
 
@@ -151,7 +156,7 @@ export function MultilingualContent({
                           id={`description-${lang.code}`}
                           value={content[lang.code]?.description || ""}
                           onChange={(e) => updateContent(lang.code, "description", e.target.value)}
-                          placeholder={`Product description in ${lang.name}`}
+                          placeholder={getPlaceholder('description', lang.name)}
                           className="min-h-16 border-0 focus-visible:ring-0"
                         />
                       </div>
@@ -179,7 +184,7 @@ export function MultilingualContent({
                           id={`content-${lang.code}`}
                           value={content[lang.code]?.content || ""}
                           onChange={(e) => updateContent(lang.code, "content", e.target.value)}
-                          placeholder={`Product content in ${lang.name}`}
+                          placeholder={getPlaceholder('content', lang.name)}
                           className="min-h-64 border-0 focus-visible:ring-0"
                         />
                       </div>

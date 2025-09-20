@@ -5,18 +5,21 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { X, Upload } from "lucide-react"
 import { cn } from "@/lib/utils"
-import Image from "next/image"  
+import Image from "next/image"
+import { ProductImage } from "@/app/types/product"
 
-interface ImageItem {
+interface ImageItem extends Omit<ProductImage, 'id' | 'position'> {
   id: string
   file?: File
   url: string
   isProductImage?: boolean
+  productImageId?: number
+  position?: number
 }
 
 interface ImageManagerProps {
   initialImages?: ImageItem[]
-  productImages?: string[]
+  productImages?: ProductImage[]
 }
 
 export function ImageManager({ initialImages = [], productImages = [] }: ImageManagerProps) {
@@ -27,11 +30,15 @@ export function ImageManager({ initialImages = [], productImages = [] }: ImageMa
 
   useEffect(() => {
     if (productImages.length > 0) {
-      const productImageItems: ImageItem[] = productImages.map((url, index) => ({
-        id: `product-${index}`,
-        url,
-        isProductImage: true,
-      }))
+      const productImageItems: ImageItem[] = productImages
+        .sort((a, b) => a.position - b.position)
+        .map((productImage) => ({
+          id: `product-${productImage.id}`,
+          url: productImage.url,
+          isProductImage: true,
+          productImageId: productImage.id,
+          position: productImage.position,
+        }))
       setImages(productImageItems)
     }
   }, [productImages])
@@ -59,7 +66,7 @@ export function ImageManager({ initialImages = [], productImages = [] }: ImageMa
     e.stopPropagation()
     setImages((prev) => {
       const imageToDelete = prev.find((img) => img.id === id)
-      if (imageToDelete) {
+      if (imageToDelete && imageToDelete.file) {
         URL.revokeObjectURL(imageToDelete.url)
       }
       return prev.filter((img) => img.id !== id)
@@ -94,7 +101,11 @@ export function ImageManager({ initialImages = [], productImages = [] }: ImageMa
       const insertIndex = dropIndex
       next.splice(insertIndex, 0, moved)
 
-      return next
+      // Update positions after reordering
+      return next.map((img, index) => ({
+        ...img,
+        position: index + 1
+      }))
     })
 
     setDraggedIndex(null)

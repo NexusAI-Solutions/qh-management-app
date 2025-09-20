@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Analytics } from '@vercel/analytics/next';
 import { Nunito_Sans } from "next/font/google";
+import { Toaster } from "sonner"
 
 const nunito = Nunito_Sans({
   subsets: ["latin"],
@@ -30,6 +31,18 @@ export default function RootLayout({
         <Analytics />
         {/* <CookieConsent />
         {gaID && <GoogleAnalytics gaId={gaID} />} */}
+        {/* Sonner Toaster for notifications */}
+        <Toaster 
+          position="bottom-right"
+          toastOptions={{
+            duration: 5000,
+            style: {
+              background: 'var(--background)',
+              color: 'var(--foreground)',
+              border: '1px solid var(--border)',
+            },
+          }}
+        />
       </body>
     </html>
   );

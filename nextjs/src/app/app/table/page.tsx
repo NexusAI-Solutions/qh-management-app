@@ -20,7 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { CheckCircle, Loader2, Plus, Trash2, AlertCircle } from 'lucide-react';
 import Confetti from '@/components/Confetti';
 
-import { Database } from '@/lib/types';
+import { Database } from '@/lib/supabase/types';
 
 type Task = Database['public']['Tables']['todo_list']['Row'];
 type NewTask = Database['public']['Tables']['todo_list']['Insert'];

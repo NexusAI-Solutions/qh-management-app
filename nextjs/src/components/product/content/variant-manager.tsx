@@ -8,41 +8,36 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Plus, Trash2, Edit3, Check, GripVertical } from "lucide-react"
-
-interface Variant {
-  id: string
-  title: string
-  ean: string
-  position?: number // Add position field to interface
-}
+import type { ProductVariant } from "@/app/types/product"
 
 interface VariantManagerProps {
-  variants: Variant[]
+  variants: ProductVariant[]
 }
 
 export function VariantManager({ variants: initialVariants }: VariantManagerProps) {
-  const [variants, setVariants] = useState<Variant[]>(
+  const [variants, setVariants] = useState<ProductVariant[]>(
     initialVariants.sort((a, b) => (a.position || 999) - (b.position || 999)),
   )
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
 
   const addVariant = () => {
-    const newVariant: Variant = {
-      id: `var-${Date.now()}`,
+    const newVariant: ProductVariant = {
+      id: Date.now(), // Generate a numeric ID
       title: "",
       ean: "",
-      position: Math.max(...variants.map((v) => v.position || 0)) + 1, // Set position for new variant
+      price: null,
+      position: Math.max(...variants.map((v) => v.position || 0)) + 1,
     }
     setVariants([...variants, newVariant])
     setEditingId(newVariant.id)
   }
 
-  const updateVariant = (id: string, field: keyof Variant, value: string) => {
+  const updateVariant = (id: number, field: keyof ProductVariant, value: string) => {
     setVariants(variants.map((v) => (v.id === id ? { ...v, [field]: value } : v)))
   }
 
-  const deleteVariant = (id: string) => {
+  const deleteVariant = (id: number) => {
     if (variants.length === 1) {
       // Don't allow deleting the last variant
       return
@@ -83,7 +78,7 @@ export function VariantManager({ variants: initialVariants }: VariantManagerProp
     setDraggedIndex(null)
   }
 
-  const saveAndEdit = (newId: string) => {
+  const saveAndEdit = (newId: number) => {
     setEditingId(newId)
   }
 
@@ -136,7 +131,7 @@ export function VariantManager({ variants: initialVariants }: VariantManagerProp
                   {editingId === variant.id ? (
                     <Input
                       id={`title-${variant.id}`}
-                      value={variant.title}
+                      value={variant.title || ""}
                       onChange={(e) => updateVariant(variant.id, "title", e.target.value)}
                       placeholder="bijv. Zwart, Wit, Large"
                       className="h-7 text-sm focus:ring-2 focus:ring-primary/20"
@@ -159,7 +154,7 @@ export function VariantManager({ variants: initialVariants }: VariantManagerProp
                     <div className="space-y-1">
                       <Input
                         id={`ean-${variant.id}`}
-                        value={variant.ean}
+                        value={variant.ean || ""}
                         onChange={(e) => updateVariant(variant.id, "ean", e.target.value)}
                         placeholder="1234567890123"
                         className={`h-7 text-sm font-mono focus:ring-2 focus:ring-primary/20 ${

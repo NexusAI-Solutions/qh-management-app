@@ -18,65 +18,108 @@ export type Database = {
         Row: {
           api_credentials: string | null
           api_endpoint: string
-          country_code: string
+          country_code: Database["public"]["Enums"]["countries"]
           created_at: string
           id: number
-          locales: string
-          type: string
-          name: string
+          locales: Database["public"]["Enums"]["countries"][] | null
+          name: string | null
+          type: Database["public"]["Enums"]["channel_type"]
         }
         Insert: {
           api_credentials?: string | null
           api_endpoint: string
-          country_code: string
+          country_code: Database["public"]["Enums"]["countries"]
           created_at?: string
           id?: number
-          locales: string
-          type: string
+          locales?: Database["public"]["Enums"]["countries"][] | null
+          name?: string | null
+          type: Database["public"]["Enums"]["channel_type"]
         }
         Update: {
           api_credentials?: string | null
           api_endpoint?: string
-          country_code?: string
+          country_code?: Database["public"]["Enums"]["countries"]
           created_at?: string
           id?: number
-          locales?: string
-          type?: string
+          locales?: Database["public"]["Enums"]["countries"][] | null
+          name?: string | null
+          type?: Database["public"]["Enums"]["channel_type"]
         }
         Relationships: []
+      }
+      content: {
+        Row: {
+          content: string | null
+          created_at: string
+          description: string | null
+          id: number
+          locale: Database["public"]["Enums"]["countries"] | null
+          product_id: number | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          description?: string | null
+          id?: number
+          locale?: Database["public"]["Enums"]["countries"] | null
+          product_id?: number | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          description?: string | null
+          id?: number
+          locale?: Database["public"]["Enums"]["countries"] | null
+          product_id?: number | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       price: {
         Row: {
           country_code: string | null
           created_at: string
+          ean_reference: string | null
           id: number
           price: number | null
           updated_at: string | null
-          variant_id: number | null
         }
         Insert: {
           country_code?: string | null
           created_at?: string
+          ean_reference?: string | null
           id?: number
           price?: number | null
           updated_at?: string | null
-          variant_id?: number | null
         }
         Update: {
           country_code?: string | null
           created_at?: string
+          ean_reference?: string | null
           id?: number
           price?: number | null
           updated_at?: string | null
-          variant_id?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "price_variant_id_fkey"
-            columns: ["variant_id"]
+            foreignKeyName: "price_ean_reference_fkey"
+            columns: ["ean_reference"]
             isOneToOne: false
             referencedRelation: "variant"
-            referencedColumns: ["id"]
+            referencedColumns: ["ean"]
           },
         ]
       }
@@ -84,9 +127,7 @@ export type Database = {
         Row: {
           active_channel_ids: number[] | null
           brand: string | null
-          content: string | null
           created_at: string
-          description: string | null
           gaslooswonen_id: number | null
           id: number
           title: string | null
@@ -95,9 +136,7 @@ export type Database = {
         Insert: {
           active_channel_ids?: number[] | null
           brand?: string | null
-          content?: string | null
           created_at?: string
-          description?: string | null
           gaslooswonen_id?: number | null
           id?: number
           title?: string | null
@@ -106,9 +145,7 @@ export type Database = {
         Update: {
           active_channel_ids?: number[] | null
           brand?: string | null
-          content?: string | null
           created_at?: string
-          description?: string | null
           gaslooswonen_id?: number | null
           id?: number
           title?: string | null
@@ -188,7 +225,6 @@ export type Database = {
         Row: {
           created_at: string
           ean: string | null
-          gaslooswonen_id: number | null
           id: number
           position: number | null
           product_id: number | null
@@ -198,7 +234,6 @@ export type Database = {
         Insert: {
           created_at?: string
           ean?: string | null
-          gaslooswonen_id?: number | null
           id?: number
           position?: number | null
           product_id?: number | null
@@ -208,7 +243,6 @@ export type Database = {
         Update: {
           created_at?: string
           ean?: string | null
-          gaslooswonen_id?: number | null
           id?: number
           position?: number | null
           product_id?: number | null
@@ -233,7 +267,8 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      channel_type: "lightspeed" | "woocommerce" | "channable"
+      countries: "NL" | "BE" | "DE" | "FR" | "ES"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -360,6 +395,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      channel_type: ["lightspeed", "woocommerce", "channable"],
+      countries: ["NL", "BE", "DE", "FR", "ES"],
+    },
   },
 } as const

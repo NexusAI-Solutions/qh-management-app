@@ -1,5 +1,5 @@
 import {SupabaseClient} from "@supabase/supabase-js";
-import {Database} from "@/lib/types";
+import {Database} from "@/lib/supabase/types";
 
 export enum ClientType {
     SERVER = 'server',

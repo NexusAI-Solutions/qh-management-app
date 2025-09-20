@@ -5,7 +5,7 @@ yarn lint
 yarn run dev
 
 # DB types opnieuw genereren
-npx supabase gen types typescript --project-id xlrzbfnheqpszgtyhdkh > src/lib/types.ts
+npx supabase gen types typescript --project-id xlrzbfnheqpszgtyhdkh > src/lib/supabase/types.ts
 
 # Channel credential management
 http://localhost:3000/api/channel/1/credentials

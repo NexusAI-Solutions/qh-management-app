@@ -8,15 +8,10 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { ExternalLink } from "lucide-react"
-
-interface Variant {
-  id: string
-  title: string
-  ean: string
-}
+import { ProductVariant } from "@/app/types/product"
 
 interface CompetitorData {
-  variantId: string
+  variantId: number
   competitors: {
     url1: string
     url2: string
@@ -25,8 +20,8 @@ interface CompetitorData {
   minimumPrice: number
 }
 
-export function Repricer({ variants }: { variants: Variant[] }) {
-  const [selectedVariant, setSelectedVariant] = useState(variants[0]?.id || "")
+export function Repricer({ variants }: { variants: ProductVariant[] }) {
+  const [selectedVariant, setSelectedVariant] = useState(variants[0]?.id.toString() || "")
   const [competitorData, setCompetitorData] = useState<CompetitorData[]>(
     variants.map((variant) => ({
       variantId: variant.id,
@@ -39,7 +34,7 @@ export function Repricer({ variants }: { variants: Variant[] }) {
     })),
   )
 
-  const updateCompetitorUrl = (variantId: string, urlKey: string, url: string) => {
+  const updateCompetitorUrl = (variantId: number, urlKey: string, url: string) => {
     setCompetitorData((prev) =>
       prev.map((data) =>
         data.variantId === variantId
@@ -52,14 +47,14 @@ export function Repricer({ variants }: { variants: Variant[] }) {
     )
   }
 
-  const updateMinimumPrice = (variantId: string, price: number) => {
+  const updateMinimumPrice = (variantId: number, price: number) => {
     setCompetitorData((prev) =>
       prev.map((data) => (data.variantId === variantId ? { ...data, minimumPrice: price } : data)),
     )
   }
 
-  const currentVariant = variants.find((v) => v.id === selectedVariant)
-  const variantData = competitorData.find((data) => data.variantId === selectedVariant)
+  const currentVariant = variants.find((v) => v.id.toString() === selectedVariant)
+  const variantData = competitorData.find((data) => data.variantId.toString() === selectedVariant)
 
   return (
     <Card>
@@ -72,8 +67,8 @@ export function Repricer({ variants }: { variants: Variant[] }) {
             </SelectTrigger>
             <SelectContent>
               {variants.map((variant) => (
-                <SelectItem key={variant.id} value={variant.id}>
-                  {variant.title}
+                <SelectItem key={variant.id} value={variant.id.toString()}>
+                  {variant.title || `Variant ${variant.id}`}
                 </SelectItem>
               ))}
             </SelectContent>

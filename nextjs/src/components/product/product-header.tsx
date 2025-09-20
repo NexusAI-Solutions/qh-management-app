@@ -2,16 +2,10 @@ import Image from "next/image"
 
 interface ProductHeaderProps {
   product: {
-    id: string
+    id: number
     title: string
-    mainImage: string
-    brand: string
-    stats: {
-      totalSales: number
-      averagePrice: number
-      buyPrice: number
-      averageMargin: number
-    }
+    mainImage: string | false
+    brand: string | null
   }
 }
 
@@ -33,7 +27,7 @@ export function ProductHeader({ product }: ProductHeaderProps) {
       {/* Title + Brand */}
       <div className="flex-1">
         <h1>{product.title}</h1>
-        <p className="text-md text-muted-foreground">Merk: {product.brand}</p>
+        <p className="text-md text-muted-foreground">Merk: {product.brand || "onbekend"}</p>
       </div>
     </div>
   </div>

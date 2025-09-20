@@ -1,9 +1,10 @@
 "use client"
+
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { CheckCircle, XCircle, Loader2, AlertTriangle } from "lucide-react"
-import { createSPAClient } from "@/lib/supabase/client"
+import type { ApiProduct } from "@/app/types/product" // Update with correct import path
 
 interface Channel {
   id: number
@@ -18,20 +19,7 @@ interface WebsiteStatus {
 }
 
 interface WebsiteStatusManagerProps {
-  product: {
-    id: string
-    title: string
-    description?: string
-    content?: string
-    images: string[]
-    active_channel_ids?: number[]
-    variants: Array<{
-      id: string
-      title: string
-      ean: string
-      position: number
-    }>
-  }
+  product: ApiProduct
   onChannelUpdate?: (channelIds: number[]) => void // Optional callback for parent component
 }
 
@@ -40,28 +28,16 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
   const [websiteStatus, setWebsiteStatus] = useState<Record<string, WebsiteStatus>>({})
   
   // Helper function to normalize active_channel_ids to number array
-  const normalizeChannelIds = (ids: number[] | string[] | string | undefined): number[] => {
+  const normalizeChannelIds = (ids: (string | number)[] | undefined): number[] => {
     if (!ids) return []
     
-    // If it's already an array of numbers
-    if (Array.isArray(ids)) {
-      return ids.map(id => typeof id === 'string' ? parseInt(id, 10) : id).filter(id => !isNaN(id))
-    }
-    
-    // If it's a string like "12" or "1,2"
-    if (typeof ids === 'string') {
-      // Check if it's a comma-separated string
-      if (ids.includes(',')) {
-        return ids.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id))
-      }
-      // Single string number
-      return [parseInt(ids, 10)].filter(id => !isNaN(id))
-    }
-    
-    return []
+    // Convert string or number array to number array
+    return ids
+      .map(id => typeof id === "number" ? id : parseInt(id, 10))
+      .filter(id => !isNaN(id))
   }
   
-  const [activeChannelIds, setActiveChannelIds] = useState<number[]>(() => 
+  const [activeChannelIds, setActiveChannelIds] = useState<number[]>(() =>
     normalizeChannelIds(product?.active_channel_ids)
   )
   const [updatingChannel, setUpdatingChannel] = useState<number | null>(null)
@@ -69,13 +45,16 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
 
   const getEanFromVariants = useCallback((variants: typeof product.variants): string | null => {
     if (!variants || variants.length === 0) return null
-    const sortedVariants = [...variants].sort((a, b) => a.position - b.position)
+    
+    const sortedVariants = [...variants].sort((a, b) => 
+      (a.position ?? 0) - (b.position ?? 0)
+    )
     return sortedVariants[0]?.ean || null
   }, [])
 
   const checkProductOnChannel = async (channelId: number, ean: string): Promise<{ published: boolean, error: boolean }> => {
     try {
-      const response = await fetch(`/api/channel/${channelId}/check-product?ean=${ean}`)
+      const response = await fetch(`/api/channels/${channelId}/check-product?ean=${ean}`)
       if (response.status === 200) {
         return { published: true, error: false }
       } else if (response.status === 404) {
@@ -93,15 +72,13 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
     if (!product?.id) return
 
     setUpdatingChannel(channelId)
-    
     try {
       // Update local state optimistically
       let newActiveChannelIds: number[]
-      
       if (isEnabled) {
         // Add channel if not already present
-        newActiveChannelIds = activeChannelIds.includes(channelId) 
-          ? activeChannelIds 
+        newActiveChannelIds = activeChannelIds.includes(channelId)
+          ? activeChannelIds
           : [...activeChannelIds, channelId]
       } else {
         // Remove channel
@@ -109,7 +86,7 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
       }
 
       // Make API call to update active_channel_ids
-      const response = await fetch(`/api/products/${product.id}`, {
+      const response = await fetch(`/api/products/${product.id}/channels`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -125,7 +102,7 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
 
       // Update local state after successful API call
       setActiveChannelIds(newActiveChannelIds)
-      
+
       // Call optional parent callback
       if (onChannelUpdate) {
         onChannelUpdate(newActiveChannelIds)
@@ -158,15 +135,23 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
       loadComplete.current = true
 
       try {
-        const sassClient = await createSPAClient()
-        const { data: channelsData, error } = await sassClient.from("channel").select("id, name").order("id")
+        // Fetch channels using the API endpoint
+        const channelsResponse = await fetch('/api/channels')
+        if (!channelsResponse.ok) {
+          throw new Error(`Failed to fetch channels: ${channelsResponse.statusText}`)
+        }
 
-        if (error) {
-          console.error("Error fetching channels:", error)
+        const { channels: channelsData } = await channelsResponse.json()
+        
+        if (!channelsData || channelsData.length === 0) {
+          console.warn("No channels found")
           return
         }
 
-        setChannels(channelsData || [])
+        setChannels(channelsData.map((channel: { id: number; name: string | null }) => ({
+          id: channel.id,
+          name: channel.name ?? "",
+        })))
 
         const ean = getEanFromVariants(product.variants)
         if (!ean) {
@@ -175,15 +160,15 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
         }
 
         // Initialize websiteStatus with loading state for all channels
-        const initialStatus: Record<number, WebsiteStatus> = channelsData?.reduce<Record<number, WebsiteStatus>>((acc, channel) => {
+        const initialStatus: Record<number, WebsiteStatus> = channelsData.reduce((acc: Record<number, WebsiteStatus>, channel: { id: number }) => {
           acc[channel.id] = { published: false, enabled: false, loading: true, error: false }
           return acc
-        }, {}) || {}
-
+        }, {})
+        
         setWebsiteStatus(initialStatus)
 
         // Collect all async channel checks into a promise array
-        const statusUpdates = channelsData?.map(async (channel) => {
+        const statusUpdates = channelsData.map(async (channel: { id: number }) => {
           try {
             const result = await checkProductOnChannel(channel.id, ean)
             return { id: channel.id, ...result }
@@ -191,7 +176,7 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
             console.error(`Error checking channel ${channel.id}:`, error)
             return { id: channel.id, published: false, error: true }
           }
-        }) || []
+        })
 
         // Wait for all channel status checks to complete
         const results = await Promise.all(statusUpdates)
@@ -200,11 +185,15 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
         setWebsiteStatus(prevStatus => {
           const updatedStatus = { ...prevStatus }
           results.forEach(({ id, published, error }) => {
-            updatedStatus[id] = { ...updatedStatus[id], published, error, loading: false }
+            updatedStatus[id] = {
+              ...updatedStatus[id],
+              published,
+              error,
+              loading: false
+            }
           })
           return updatedStatus
         })
-
       } catch (error) {
         console.error("Error loading channels:", error)
       }
@@ -261,8 +250,8 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
                   <div className="flex items-center space-x-2">
                     <span className="text-sm text-gray-600">Publiceren</span>
                     <div className="relative">
-                      <Switch 
-                        checked={isChannelActive} 
+                      <Switch
+                        checked={isChannelActive}
                         disabled={isUpdating}
                         onCheckedChange={(checked) => handleToggleChannel(channel.id, checked)}
                       />

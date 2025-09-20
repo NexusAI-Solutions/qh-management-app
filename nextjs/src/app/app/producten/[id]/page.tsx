@@ -11,29 +11,7 @@ import { PricingTab } from "@/components/product/price-management/pricing-tab"
 import { AnalyticsTab } from "@/components/product/analytics/analytics-tab"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-
-interface ProductData {
-  id: string
-  title: string
-  brand: string
-  description?: string
-  content?: string
-  active_channel_ids?: number[]
-  images: string[]
-  mainImage: string
-  stats: {
-    totalSales: number
-    averagePrice: number
-    buyPrice: number
-    averageMargin: number
-  }
-  variants: Array<{
-    id: string
-    title: string
-    ean: string
-    position: number
-  }>
-}
+import { ApiProduct } from "@/app/types/product"   // <-- use ApiProduct
 
 // Skeleton component for the product header
 function ProductHeaderSkeleton() {
@@ -78,7 +56,7 @@ function TabContentSkeleton() {
 
 export default function ProductDetailPage() {
   const [activeTab, setActiveTab] = useState("content")
-  const [productData, setProductData] = useState<ProductData | null>(null)
+  const [productData, setProductData] = useState<ApiProduct | null>(null)  // <-- ApiProduct
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const params = useParams()
@@ -122,7 +100,7 @@ export default function ProductDetailPage() {
           }
         }
 
-        const data: ProductData = await response.json()
+        const data: ApiProduct = await response.json()     // <-- ApiProduct
         console.log("[v0] Product data received:", data)
         setProductData(data)
         

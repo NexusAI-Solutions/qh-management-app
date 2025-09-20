@@ -4,15 +4,10 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-
-interface Variant {
-  id: string
-  title: string
-  ean: string
-}
+import { ProductVariant } from "@/app/types/product"
 
 interface PriceData {
-  variantId: string
+  variantId: number
   prices: Record<string, number>
   margins: Record<string, number>
   buyPrice: number // Added buy price per variant
@@ -25,34 +20,49 @@ const countries = [
   { code: "es", name: "Spain", currency: "EUR", flag: "🇪🇸" },
 ]
 
-export function PriceManagementTable({ variants }: { variants: Variant[] }) {
+export function PriceManagementTable({ variants }: { variants: ProductVariant[] }) {
   const [priceData, setPriceData] = useState<PriceData[]>(
     variants.map((variant) => {
       const buyPrice = 125.0
+      
+      // Initialize prices from ProductVariant's price array or use defaults
+      const initialPrices: Record<string, number> = {}
+      const initialMargins: Record<string, number> = {}
+      
+      countries.forEach((country) => {
+        // Try to find existing price for this country from variant.price array
+        const existingPrice = variant.price?.find(p => p.country_code === country.code)
+        const price = existingPrice?.price ?? getDefaultPrice(country.code)
+        
+        initialPrices[country.code] = price
+        initialMargins[country.code] = ((price - buyPrice) / price) * 100
+      })
+      
       return {
         variantId: variant.id,
         buyPrice,
-        prices: {
-          nl: 249.99,
-          de: 259.99,
-          fr: 269.99,
-          es: 239.99,
-        },
-        margins: {
-          nl: ((249.99 - buyPrice) / 249.99) * 100,
-          de: ((259.99 - buyPrice) / 259.99) * 100,
-          fr: ((269.99 - buyPrice) / 269.99) * 100,
-          es: ((239.99 - buyPrice) / 239.99) * 100,
-        },
+        prices: initialPrices,
+        margins: initialMargins,
       }
     }),
   )
 
-  const updatePrice = (variantId: string, countryCode: string, price: number) => {
+  // Helper function to get default prices per country
+  function getDefaultPrice(countryCode: string): number {
+    const defaults: Record<string, number> = {
+      nl: 249.99,
+      de: 259.99,
+      fr: 269.99,
+      es: 239.99,
+    }
+    return defaults[countryCode] ?? 249.99
+  }
+
+  const updatePrice = (variantId: number, countryCode: string, price: number) => {
     setPriceData((prev) =>
       prev.map((data) => {
         if (data.variantId === variantId) {
-          const newMargin = ((price - data.buyPrice) / price) * 100
+          const newMargin = price > 0 ? ((price - data.buyPrice) / price) * 100 : 0
           return {
             ...data,
             prices: { ...data.prices, [countryCode]: price },
@@ -102,8 +112,14 @@ export function PriceManagementTable({ variants }: { variants: Variant[] }) {
                   >
                     <td className="p-2 md:p-4">
                       <div className="space-y-1 md:space-y-2">
-                        <div className="font-medium text-xs md:text-sm">{variant.title}</div>
-                        <div className="text-xs text-muted-foreground font-mono break-all">{variant.ean}</div>
+                        <div className="font-medium text-xs md:text-sm">
+                          {variant.title || `Variant ${variant.id}`}
+                        </div>
+                        {variant.ean && (
+                          <div className="text-xs text-muted-foreground font-mono break-all">
+                            {variant.ean}
+                          </div>
+                        )}
                         <div className="text-xs text-muted-foreground">
                           <span className="hidden sm:inline">Inkoopprijs: </span>
                           <span className="sm:hidden">Inkoop: </span>

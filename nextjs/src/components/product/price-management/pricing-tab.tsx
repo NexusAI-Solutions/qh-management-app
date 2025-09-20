@@ -2,16 +2,10 @@
 
 import { PriceManagementTable } from "@/components/product/price-management/price-management-table"
 import { Repricer } from "@/components/product/price-management/repricer"
+import { ApiProduct } from "@/app/types/product"
 
 interface PricingTabProps {
-  product: {
-    id: string
-    variants: Array<{
-      id: string
-      title: string
-      ean: string
-    }>
-  }
+  product: ApiProduct
 }
 
 export function PricingTab({ product }: PricingTabProps) {

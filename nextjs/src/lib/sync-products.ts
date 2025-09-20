@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { Database, TablesInsert } from '@/lib/supabase/types'; // Adjust path as needed
 import { 
   getLightspeedAPI, 
   LightspeedProduct, 
@@ -8,7 +9,7 @@ import {
   LightspeedAPI
 } from './lightspeed';
 
-const supabase = createClient(
+const supabase = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.PRIVATE_SUPABASE_SERVICE_KEY!
 );
@@ -27,34 +28,12 @@ const EXCLUDED_WORDS = [
   // Add more excluded words here as needed
 ];
 
-// Supabase Types
-interface SupabaseProduct {
-  gaslooswonen_id: number;
-  title: string;
-  content: string;
-  description: string;
-  brand?: string;
-}
-
-interface SupabaseProductImage {
-  product_id: string;
-  url: string;
-  position: number;
-}
-
-interface SupabaseVariant {
-  gaslooswonen_id: number;
-  ean: string;
-  product_id: string;
-  title: string;
-  position: number;
-}
-
-interface SupabasePrice {
-  variant_id: string;
-  price: number;
-  country_code: string;
-}
+// Type definitions using the Database types
+type SupabaseProduct = TablesInsert<'product'>;
+type SupabaseContent = TablesInsert<'content'>;
+type SupabaseProductImage = TablesInsert<'product_image'>;
+type SupabaseVariant = TablesInsert<'variant'>;
+type SupabasePrice = TablesInsert<'price'>;
 
 export interface SyncResult {
   success: boolean;
@@ -62,7 +41,9 @@ export interface SyncResult {
   totalVariants: number;
   totalImages: number;
   totalPrices: number;
+  totalContent: number;
   totalExcluded: number;
+  duplicateEans: string[];
   errors: string[];
   duration: string;
 }
@@ -77,6 +58,7 @@ async function processProduct(
   lightspeed: LightspeedAPI
 ): Promise<{
   product: SupabaseProduct;
+  content: SupabaseContent;
   brand: LightspeedBrand | null;
   images: LightspeedImage[];
   variants: LightspeedVariant[];
@@ -126,14 +108,23 @@ async function processProduct(
     await new Promise(resolve => setTimeout(resolve, 100));
   }
 
+  const productData: SupabaseProduct = {
+    gaslooswonen_id: product.id,
+    title: product.title || null,
+    brand: brand?.title || null,
+  };
+
+  const contentData: SupabaseContent = {
+    title: product.title || null,
+    content: product.content || null,
+    description: product.description || null,
+    locale: 'NL',
+    product_id: null, // Will be set after product is created
+  };
+
   return {
-    product: {
-      gaslooswonen_id: product.id,
-      title: product.title || '',
-      content: product.content || '',
-      description: product.description || '',
-      brand: brand?.title,
-    },
+    product: productData,
+    content: contentData,
     brand,
     images,
     variants,
@@ -155,9 +146,24 @@ export async function syncProducts(): Promise<SyncResult> {
   let totalVariants = 0;
   let totalImages = 0;
   let totalPrices = 0;
+  let totalContent = 0;
   let totalExcluded = 0;
+  const duplicateEans: string[] = [];
   const errors: string[] = [];
   let pageCount = 0;
+
+  // Track processed items for cleanup
+  const processedVariantEans: string[] = [];
+
+  // Get all existing EANs to check for duplicates
+  const { data: allExistingVariants } = await supabase
+    .from('variant')
+    .select('ean')
+    .not('ean', 'is', null);
+  
+  const existingEans = new Set(
+    allExistingVariants?.map(v => v.ean).filter((ean): ean is string => ean !== null) || []
+  );
 
   try {
     // Use async iterator for clean pagination
@@ -178,19 +184,23 @@ export async function syncProducts(): Promise<SyncResult> {
         continue;
       }
 
+      console.log(`Page ${pageCount}: Processing ${filteredProducts.length} products (${excludedCount} excluded)`);
+
       // Process each product with its related data
       for (const product of filteredProducts) {
         try {
-          console.log(`Processing product ${product.id}: ${product.title}`);
+          console.log(`\nProcessing product ${product.id}: ${product.title}`);
           
           // Fetch all related data
           const { 
             product: productData, 
+            content: contentData,
             images, 
             variants 
           } = await processProduct(product, lightspeed);
 
           // 1. Upsert product
+          console.log(`  - Upserting product with data:`, productData);
           const { data: upsertedProduct, error: productError } = await supabase
             .from('product')
             .upsert(productData, {
@@ -203,31 +213,62 @@ export async function syncProducts(): Promise<SyncResult> {
           if (productError) {
             errors.push(`Product ${product.id}: ${productError.message}`);
             console.error(`Failed to upsert product ${product.id}:`, productError);
+            console.error(`Product data was:`, productData);
             continue;
           }
 
           if (!upsertedProduct) {
             errors.push(`Product ${product.id}: No data returned after upsert`);
+            console.error(`Product ${product.id}: No data returned after upsert`);
             continue;
           }
 
           totalProducts++;
           const supabaseProductId = upsertedProduct.id;
+          console.log(`  - Product upserted with ID: ${supabaseProductId}`);
 
-          // 2. Delete existing images and insert new ones
+          // 2. Delete existing NL content for this product and insert new one
+          console.log(`  - Updating NL content for product ${product.id}`);
+          
+          // Delete only NL content for this product
+          const { error: deleteContentError } = await supabase
+            .from('content')
+            .delete()
+            .eq('product_id', supabaseProductId)
+            .eq('locale', 'NL');
+
+          if (deleteContentError) {
+            console.error(`Failed to delete existing NL content:`, deleteContentError);
+          }
+
+          // Insert new NL content
+          contentData.product_id = supabaseProductId;
+          const { error: contentError } = await supabase
+            .from('content')
+            .insert(contentData);
+
+          if (contentError) {
+            errors.push(`Content for product ${product.id}: ${contentError.message}`);
+            console.error(`Failed to insert content for product ${product.id}:`, contentError);
+          } else {
+            totalContent++;
+            console.log(`  - Successfully inserted NL content`);
+          }
+
+          // 3. Delete ALL existing images for this product and insert new ones
+          // Delete all existing images for this product first
+          const { error: deleteImagesError } = await supabase
+            .from('product_image')
+            .delete()
+            .eq('product_id', supabaseProductId);
+
+          if (deleteImagesError) {
+            console.error(`Failed to delete existing images:`, deleteImagesError);
+          }
+
           if (images.length > 0) {
             console.log(`  - Found ${images.length} images for product ${product.id}`);
             
-            // Delete existing images for this product
-            const { error: deleteError } = await supabase
-              .from('product_image')
-              .delete()
-              .eq('product_id', supabaseProductId);
-
-            if (deleteError) {
-              console.error(`Failed to delete existing images:`, deleteError);
-            }
-
             // Insert new images
             const imageData: SupabaseProductImage[] = images.map((img, index) => ({
               product_id: supabaseProductId,
@@ -235,12 +276,11 @@ export async function syncProducts(): Promise<SyncResult> {
               position: img.sortOrder || index,
             }));
 
-            console.log(`  - Inserting images:`, imageData.map(i => i.url));
+            console.log(`  - Inserting ${imageData.length} images`);
 
             const { error: imageError } = await supabase
               .from('product_image')
-              .insert(imageData)
-              .select();
+              .insert(imageData);
 
             if (imageError) {
               errors.push(`Images for product ${product.id}: ${imageError.message}`);
@@ -253,65 +293,117 @@ export async function syncProducts(): Promise<SyncResult> {
             console.log(`  - No images found for product ${product.id}`);
           }
 
-          // 3. Process variants and prices
+          // 4. Delete ALL existing variants for this product first
+          console.log(`  - Deleting existing variants for product ${product.id}`);
+          
+          // Get existing variant EANs for price cleanup
+          const { data: existingProductVariants } = await supabase
+            .from('variant')
+            .select('ean')
+            .eq('product_id', supabaseProductId)
+            .not('ean', 'is', null);
+
+          const existingVariantEans = existingProductVariants?.map(v => v.ean).filter((ean): ean is string => ean !== null) || [];
+
+          // Delete existing variants
+          await supabase
+            .from('variant')
+            .delete()
+            .eq('product_id', supabaseProductId);
+
+          // Delete associated NL prices for those variants using EAN reference
+          if (existingVariantEans.length > 0) {
+            for (const ean of existingVariantEans) {
+              await supabase
+                .from('price')
+                .delete()
+                .eq('ean_reference', ean)
+                .eq('country_code', 'NL');
+            }
+          }
+
+          // 5. Process new variants and prices
           if (variants.length > 0) {
+            console.log(`  - Processing ${variants.length} variants`);
+            
             for (const variant of variants) {
-              // Upsert variant
+              // Check for duplicate EAN (skip if already exists in another product)
+              if (variant.ean && existingEans.has(variant.ean)) {
+                const dupMsg = `Duplicate EAN ${variant.ean} found for variant ${variant.id} (product: ${product.title})`;
+                console.warn(`  - ${dupMsg}`);
+                duplicateEans.push(dupMsg);
+                continue; // Skip this variant
+              }
+
+              // Insert variant
               const variantData: SupabaseVariant = {
-                gaslooswonen_id: variant.id,
-                ean: variant.ean || '',
+                ean: variant.ean || null,
                 product_id: supabaseProductId,
-                title: variant.title || '',
-                position: variant.sortOrder || 1,
+                title: variant.title || null,
+                position: variant.sortOrder || null,
               };
 
-              const { data: upsertedVariant, error: variantError } = await supabase
+              console.log(`    - Inserting variant with EAN: ${variant.ean}`);
+              const { data: insertedVariant, error: variantError } = await supabase
                 .from('variant')
-                .upsert(variantData, {
-                  onConflict: 'gaslooswonen_id',
-                  ignoreDuplicates: false,
-                })
-                .select('id')
+                .insert(variantData)
+                .select('id, ean')
                 .single();
 
               if (variantError) {
+                if (variantError.code === '23505' && variantError.message.includes('ean')) {
+                  const dupMsg = `Duplicate EAN ${variant.ean} for variant ${variant.id}`;
+                  console.warn(`    - ${dupMsg}`);
+                  duplicateEans.push(dupMsg);
+                  continue;
+                }
                 errors.push(`Variant ${variant.id}: ${variantError.message}`);
-                console.error(`Failed to upsert variant ${variant.id}:`, variantError);
+                console.error(`Failed to insert variant ${variant.id}:`, variantError);
                 continue;
               }
 
-              if (!upsertedVariant) {
-                errors.push(`Variant ${variant.id}: No data returned after upsert`);
+              if (!insertedVariant) {
+                errors.push(`Variant ${variant.id}: No data returned after insert`);
                 continue;
               }
 
               totalVariants++;
-              const supabaseVariantId = upsertedVariant.id;
+              
+              // Track processed EAN for cleanup
+              if (insertedVariant.ean) {
+                processedVariantEans.push(insertedVariant.ean);
+              }
+              
+              // Add to existing EANs set to prevent duplicates within this sync
+              if (variant.ean) {
+                existingEans.add(variant.ean);
+              }
 
-              // Delete existing price and insert new one
-              await supabase
-                .from('price')
-                .delete()
-                .eq('variant_id', supabaseVariantId);
+              // Insert NL price for this variant using EAN reference
+              if (insertedVariant.ean) {
+                const priceData: SupabasePrice = {
+                  ean_reference: insertedVariant.ean,
+                  price: variant.priceIncl || null,
+                  country_code: 'NL',
+                };
 
-              // Insert price (using priceIncl as the price with tax)
-              const priceData: SupabasePrice = {
-                variant_id: supabaseVariantId,
-                price: variant.priceIncl || 0,
-                country_code: 'NL',
-              };
+                const { error: priceError } = await supabase
+                  .from('price')
+                  .insert(priceData);
 
-              const { error: priceError } = await supabase
-                .from('price')
-                .insert(priceData);
-
-              if (priceError) {
-                errors.push(`Price for variant ${variant.id}: ${priceError.message}`);
-                console.error(`Failed to insert price for variant ${variant.id}:`, priceError);
+                if (priceError) {
+                  errors.push(`Price for variant ${variant.id}: ${priceError.message}`);
+                  console.error(`Failed to insert price for variant ${variant.id}:`, priceError);
+                } else {
+                  totalPrices++;
+                  console.log(`    - Successfully inserted price: €${variant.priceIncl}`);
+                }
               } else {
-                totalPrices++;
+                console.log(`    - Skipping price insert: variant has no EAN`);
               }
             }
+          } else {
+            console.log(`  - No variants found for product ${product.id}`);
           }
 
           // Add small delay between products to avoid rate limits
@@ -327,18 +419,30 @@ export async function syncProducts(): Promise<SyncResult> {
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     
-    const result = {
+    const result: SyncResult = {
       success: errors.length === 0,
       totalProducts,
       totalVariants,
       totalImages,
       totalPrices,
+      totalContent,
       totalExcluded,
+      duplicateEans: duplicateEans.slice(0, 20), // Limit duplicates array
       errors: errors.slice(0, 20), // Limit errors array
       duration: `${duration}s`,
     };
 
-    console.log('\nSync completed:', result);
+    console.log('\n=== SYNC COMPLETED ===');
+    console.log(`Duration: ${result.duration}`);
+    console.log(`Products: ${totalProducts}`);
+    console.log(`Variants: ${totalVariants}`);
+    console.log(`Images: ${totalImages}`);
+    console.log(`Prices: ${totalPrices}`);
+    console.log(`Content: ${totalContent}`);
+    console.log(`Excluded: ${totalExcluded}`);
+    console.log(`Duplicate EANs: ${duplicateEans.length}`);
+    console.log(`Errors: ${errors.length}`);
+    
     return result;
 
   } catch (error) {

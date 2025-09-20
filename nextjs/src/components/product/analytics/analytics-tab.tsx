@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Line, LineChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { ShoppingCart, DollarSign, TrendingUp, Euro } from "lucide-react"
+import { ProductVariant } from "@/app/types/product"
 
 const variantData = {
   Black: {
@@ -112,22 +113,42 @@ const variantData = {
   },
 }
 
+interface Product {
+  id: number
+  title: string | null
+  variants: ProductVariant[]
+}
+
 interface AnalyticsTabProps {
-  product: {
-    id: string
-    title: string
-    variants: Array<{
-      id: string
-      title: string
-      ean: string
-    }>
-  }
+  product: Product
 }
 
 export function AnalyticsTab({ product }: AnalyticsTabProps) {
-  const [selectedVariant, setSelectedVariant] = useState("Black")
+  const [selectedVariant, setSelectedVariant] = useState(
+    product.variants[0]?.title || product.variants[0]?.id.toString() || ""
+  )
 
-  const currentData = variantData[selectedVariant as keyof typeof variantData]
+  // Try to find variant data by title first, then fallback to a default
+  const getVariantKey = (selectedValue: string): keyof typeof variantData => {
+    // Check if the selected value matches any of our hardcoded variant keys
+    if (selectedValue in variantData) {
+      return selectedValue as keyof typeof variantData
+    }
+    // Fallback to first available key
+    return Object.keys(variantData)[0] as keyof typeof variantData
+  }
+
+  const currentData = variantData[getVariantKey(selectedVariant)]
+
+  // Get display value for variant in select
+  const getVariantDisplayValue = (variant: ProductVariant): string => {
+    return variant.title || `Variant ${variant.id}`
+  }
+
+  // Get variant select value (prefer title, fallback to id)
+  const getVariantSelectValue = (variant: ProductVariant): string => {
+    return variant.title || variant.id.toString()
+  }
 
   return (
     <div className="space-y-6">
@@ -142,8 +163,8 @@ export function AnalyticsTab({ product }: AnalyticsTabProps) {
           </SelectTrigger>
           <SelectContent>
             {product.variants.map((variant) => (
-              <SelectItem key={variant.id} value={variant.title}>
-                {variant.title}
+              <SelectItem key={variant.id} value={getVariantSelectValue(variant)}>
+                {getVariantDisplayValue(variant)}
               </SelectItem>
             ))}
           </SelectContent>
