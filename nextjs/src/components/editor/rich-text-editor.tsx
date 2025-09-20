@@ -98,7 +98,7 @@ function EditorContent({ value, onChange, placeholder }: Pick<RichTextEditorProp
   const isUpdatingFromOutside = useRef(false)
 
   useEffect(() => {
-    const unregister = editor.registerUpdateListener(({ editorState, dirtyElements, dirtyLeaves, prevEditorState, tags }) => {
+    const unregister = editor.registerUpdateListener(({ editorState, tags }) => {
       // Skip updates that are from setting initial content
       if (tags.has('history-skip')) return
       if (isUpdatingFromOutside.current) {

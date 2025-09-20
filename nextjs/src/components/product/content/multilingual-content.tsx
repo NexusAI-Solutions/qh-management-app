@@ -189,7 +189,7 @@ export function MultilingualContent({
       
       setSaveStates(prev => ({ ...prev, [langCode]: 'success' }))
       
-      toast.success(`${lang.name} content opgeslagen`, {
+      toast.success(`${lang.name}e content opgeslagen`, {
         description: "Content is succesvol opgeslagen.",
       })
 
