@@ -4,12 +4,13 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Bold, Italic, List, Link, Languages, Save, Loader2, AlertCircle, CheckCircle } from "lucide-react"
+import { Languages, Save, Loader2, AlertCircle, CheckCircle } from "lucide-react"
 import { ImageManager } from "@/components/product/content/image-manager"
+import { RichTextEditor } from "@/components/editor/rich-text-editor"
 import { ProductContent, ProductImage } from "@/app/types/product"
 import { toast } from "sonner"
 
@@ -42,7 +43,6 @@ export function MultilingualContent({
   productImages = [],
 }: MultilingualContentProps) {
   
-  // Helper function to find content for a specific locale
   const getContentForLocale = (locale: string): ProductContent | undefined => {
     return productContent.find(content => 
       content.locale?.toLowerCase() === locale.toLowerCase() ||
@@ -65,7 +65,6 @@ export function MultilingualContent({
     return initialContent
   })
 
-  // Track the last saved state for comparison
   const [lastSavedContent, setLastSavedContent] = useState<Record<string, ContentData>>(() => {
     const initialContent: Record<string, ContentData> = {}
     
@@ -85,7 +84,6 @@ export function MultilingualContent({
   const [saveStates, setSaveStates] = useState<SaveState>({})
   const [hasChanges, setHasChanges] = useState<Record<string, boolean>>({})
 
-  // Track changes for each language by comparing against last saved content
   useEffect(() => {
     const changes: Record<string, boolean> = {}
     
@@ -144,7 +142,6 @@ export function MultilingualContent({
         throw new Error(errorData.error || 'Failed to save content')
       }
       
-      // Update the last saved content to match current content
       setLastSavedContent(prev => ({
         ...prev,
         [langCode]: {
@@ -160,7 +157,6 @@ export function MultilingualContent({
         description: "Content is succesvol opgeslagen.",
       })
 
-      // Reset success state after 2 seconds
       setTimeout(() => {
         setSaveStates(prev => ({ ...prev, [langCode]: 'idle' }))
       }, 2000)
@@ -173,7 +169,6 @@ export function MultilingualContent({
         description: error instanceof Error ? error.message : "Er is een onbekende fout opgetreden.",
       })
 
-      // Reset error state after 3 seconds
       setTimeout(() => {
         setSaveStates(prev => ({ ...prev, [langCode]: 'idle' }))
       }, 3000)
@@ -189,7 +184,7 @@ export function MultilingualContent({
       return
     }
 
-    // Simulate translation (in real app, this would call a translation API)
+    // Here you would integrate with a real translation API
     const translatedTitle = `${dutchContent.title} (${targetLang.toUpperCase()})`
     const translatedDescription = `${dutchContent.description} (${targetLang.toUpperCase()})`
     const translatedContent = `${dutchContent.content} (${targetLang.toUpperCase()})`
@@ -266,7 +261,7 @@ export function MultilingualContent({
     
     switch (state) {
       case 'success':
-        return 'default' as const // or a success variant if you have one
+        return 'default' as const
       case 'error':
         return 'destructive' as const
       default:
@@ -356,30 +351,12 @@ export function MultilingualContent({
 
                     <div className="space-y-2">
                       <Label htmlFor={`content-${lang.code}`}>Content</Label>
-                      <div className="border rounded-lg">
-                        {/* Rich Text Toolbar */}
-                        <div className="flex items-center gap-1 p-2 border-b bg-muted/50">
-                          <Button size="sm" variant="ghost">
-                            <Bold className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost">
-                            <Italic className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost">
-                            <List className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost">
-                            <Link className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <Textarea
-                          id={`content-${lang.code}`}
-                          value={content[lang.code]?.content || ""}
-                          onChange={(e) => updateContent(lang.code, "content", e.target.value)}
-                          placeholder={getPlaceholder('content', lang.name)}
-                          className="min-h-64 border-0 focus-visible:ring-0"
-                        />
-                      </div>
+                      <RichTextEditor
+                        value={content[lang.code]?.content || ""}
+                        onChange={(value) => updateContent(lang.code, "content", value)}
+                        placeholder={getPlaceholder('content', lang.name)}
+                        className="min-h-[300px]"
+                      />
                     </div>
                   </div>
                 </TabsContent>
