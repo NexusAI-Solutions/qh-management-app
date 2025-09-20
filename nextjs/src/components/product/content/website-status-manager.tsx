@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
+import { Skeleton } from "@/components/ui/skeleton"
 import { CheckCircle, XCircle, Loader2, AlertTriangle } from "lucide-react"
 import type { ApiProduct } from "@/app/types/product" // Update with correct import path
 
@@ -26,6 +27,7 @@ interface WebsiteStatusManagerProps {
 export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatusManagerProps) {
   const [channels, setChannels] = useState<Channel[]>([])
   const [websiteStatus, setWebsiteStatus] = useState<Record<string, WebsiteStatus>>({})
+  const [isLoadingChannels, setIsLoadingChannels] = useState(true)
   
   // Helper function to normalize active_channel_ids to number array
   const normalizeChannelIds = (ids: (string | number)[] | undefined): number[] => {
@@ -124,6 +126,7 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
         return
       }
       loadComplete.current = true
+      setIsLoadingChannels(true)
 
       // Move the function inside the useEffect to avoid dependency issues
       const getEanFromVariants = (variants: Array<{ ean?: string | null; position?: number | null }>): string | null => {
@@ -197,6 +200,8 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
         })
       } catch (error) {
         console.error("Error loading channels:", error)
+      } finally {
+        setIsLoadingChannels(false)
       }
     }
 
@@ -223,7 +228,24 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {channels.map((channel) => {
+          {isLoadingChannels ? (
+            // Show skeleton loaders while loading channels
+            Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <Skeleton className="h-5 w-5 rounded-full" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-6 w-11 rounded-full" />
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            channels.map((channel) => {
             const status = websiteStatus[channel.id] || { published: false, enabled: false, loading: false }
             // Use activeChannelIds state which is synced with the database
             const isChannelActive = activeChannelIds.includes(channel.id)
@@ -261,7 +283,8 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
                 </div>
               </div>
             )
-          })}
+          })
+          )}
         </div>
       </CardContent>
     </Card>
