@@ -8,7 +8,8 @@ const PROTECTED: RegExp[] = [
   /^\/api\/airtable$/,      // exact endpoint
   /^\/api\/products(?:\/.*)?$/,
   /^\/api\/channels(?:\/.*)?$/,
-  /^\/api\/products(?:\/.*)?$/,           
+  /^\/api\/products(?:\/.*)?$/, 
+  /^\/api\/prices(?:\/.*)?$/,           
   // /^\/api\/private(?:\/.*)?$/,   // whole folder
   // /^\/api\/reports$/,            // another example
 ];
