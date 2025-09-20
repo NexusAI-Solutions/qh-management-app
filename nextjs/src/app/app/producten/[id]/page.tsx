@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ArrowLeft, FileText, Euro, BarChart3, Save } from "lucide-react"
+import { ArrowLeft, FileText, Euro, BarChart3 } from "lucide-react"
 import { ProductHeader } from "@/components/product/product-header"
 import { ContentTab } from "@/components/product/content/content-tab"
 import { PricingTab } from "@/components/product/price-management/pricing-tab"
@@ -176,7 +176,7 @@ export default function ProductDetailPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button 
+            {/* <Button 
               size="sm" 
               className="text-xs md:text-sm"
               disabled={loading || !productData}
@@ -184,7 +184,7 @@ export default function ProductDetailPage() {
               <Save className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
               <span className="hidden sm:inline">Wijzigingen opslaan</span>
               <span className="sm:hidden">Opslaan</span>
-            </Button>
+            </Button> */}
           </div>
         </div>
       </div>

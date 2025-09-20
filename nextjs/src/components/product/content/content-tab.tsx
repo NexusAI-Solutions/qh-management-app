@@ -28,6 +28,7 @@ export function ContentTab({ product }: ContentTabProps) {
 
       <div>
         <MultilingualContent
+          productId={product.id}
           productContent={product.content}
           productImages={product.images}
         />

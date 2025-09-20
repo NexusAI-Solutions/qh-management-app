@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,15 +8,16 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Bold, Italic, List, Link, Languages } from "lucide-react"
+import { Bold, Italic, List, Link, Languages, Save, Loader2, AlertCircle, CheckCircle } from "lucide-react"
 import { ImageManager } from "@/components/product/content/image-manager"
 import { ProductContent, ProductImage } from "@/app/types/product"
+import { toast } from "sonner"
 
 const languages = [
-  { code: "nl", name: "Nederlands", flag: "🇳🇱" },
-  { code: "de", name: "Duits", flag: "🇩🇪" },
-  { code: "fr", name: "Frans", flag: "🇫🇷" },
-  { code: "es", name: "Spaans", flag: "🇪🇸" },
+  { code: "nl", name: "Nederlands", flag: "🇳🇱", apiCode: "NL" },
+  { code: "de", name: "Duits", flag: "🇩🇪", apiCode: "DE" },
+  { code: "fr", name: "Frans", flag: "🇫🇷", apiCode: "FR" },
+  { code: "es", name: "Spaans", flag: "🇪🇸", apiCode: "ES" },
 ]
 
 interface ContentData {
@@ -26,17 +27,27 @@ interface ContentData {
 }
 
 interface MultilingualContentProps {
+  productId: number
   productContent?: ProductContent[]
   productImages?: ProductImage[]
 }
 
+interface SaveState {
+  [key: string]: 'idle' | 'saving' | 'success' | 'error'
+}
+
 export function MultilingualContent({
+  productId,
   productContent = [],
   productImages = [],
 }: MultilingualContentProps) {
+  
   // Helper function to find content for a specific locale
   const getContentForLocale = (locale: string): ProductContent | undefined => {
-    return productContent.find(content => content.locale?.toLowerCase() === locale.toLowerCase())
+    return productContent.find(content => 
+      content.locale?.toLowerCase() === locale.toLowerCase() ||
+      content.locale?.toLowerCase() === languages.find(l => l.code === locale)?.apiCode.toLowerCase()
+    )
   }
 
   const [content, setContent] = useState<Record<string, ContentData>>(() => {
@@ -54,7 +65,43 @@ export function MultilingualContent({
     return initialContent
   })
 
+  // Track the last saved state for comparison
+  const [lastSavedContent, setLastSavedContent] = useState<Record<string, ContentData>>(() => {
+    const initialContent: Record<string, ContentData> = {}
+    
+    languages.forEach((lang) => {
+      const localeContent = getContentForLocale(lang.code)
+      initialContent[lang.code] = {
+        title: localeContent?.title || "",
+        description: localeContent?.description || "",
+        content: localeContent?.content || "",
+      }
+    })
+    
+    return initialContent
+  })
+
   const [activeLanguage, setActiveLanguage] = useState("nl")
+  const [saveStates, setSaveStates] = useState<SaveState>({})
+  const [hasChanges, setHasChanges] = useState<Record<string, boolean>>({})
+
+  // Track changes for each language by comparing against last saved content
+  useEffect(() => {
+    const changes: Record<string, boolean> = {}
+    
+    languages.forEach((lang) => {
+      const savedContent = lastSavedContent[lang.code]
+      const currentContent = content[lang.code]
+      
+      changes[lang.code] = (
+        currentContent.title !== savedContent.title ||
+        currentContent.description !== savedContent.description ||
+        currentContent.content !== savedContent.content
+      )
+    })
+    
+    setHasChanges(changes)
+  }, [content, lastSavedContent])
 
   const updateContent = (lang: string, field: keyof ContentData, value: string) => {
     setContent((prev) => ({
@@ -66,9 +113,81 @@ export function MultilingualContent({
     }))
   }
 
+  const saveContent = async (langCode: string) => {
+    const lang = languages.find(l => l.code === langCode)
+    if (!lang) return
+
+    setSaveStates(prev => ({ ...prev, [langCode]: 'saving' }))
+
+    try {
+      const contentData = content[langCode]
+      const existingContent = getContentForLocale(langCode)
+      
+      const payload = {
+        locale: lang.apiCode,
+        title: contentData.title || null,
+        description: contentData.description || null,
+        content: contentData.content || null,
+      }
+
+      const method = existingContent ? 'PUT' : 'POST'
+      const response = await fetch(`/api/products/${productId}/content`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to save content')
+      }
+      
+      // Update the last saved content to match current content
+      setLastSavedContent(prev => ({
+        ...prev,
+        [langCode]: {
+          title: contentData.title,
+          description: contentData.description,
+          content: contentData.content,
+        }
+      }))
+      
+      setSaveStates(prev => ({ ...prev, [langCode]: 'success' }))
+      
+      toast.success(`${lang.name} content opgeslagen`, {
+        description: "Content is succesvol opgeslagen.",
+      })
+
+      // Reset success state after 2 seconds
+      setTimeout(() => {
+        setSaveStates(prev => ({ ...prev, [langCode]: 'idle' }))
+      }, 2000)
+
+    } catch (error) {
+      console.error('Failed to save content:', error)
+      setSaveStates(prev => ({ ...prev, [langCode]: 'error' }))
+      
+      toast.error(`Fout bij opslaan ${lang.name} content`, {
+        description: error instanceof Error ? error.message : "Er is een onbekende fout opgetreden.",
+      })
+
+      // Reset error state after 3 seconds
+      setTimeout(() => {
+        setSaveStates(prev => ({ ...prev, [langCode]: 'idle' }))
+      }, 3000)
+    }
+  }
+
   const translateContent = async (targetLang: string) => {
     const dutchContent = content.nl
-    if (!dutchContent.title && !dutchContent.description && !dutchContent.content) return
+    if (!dutchContent.title && !dutchContent.description && !dutchContent.content) {
+      toast.error("Geen content om te vertalen", {
+        description: "Voeg eerst Nederlandse content toe voordat je kunt vertalen.",
+      })
+      return
+    }
 
     // Simulate translation (in real app, this would call a translation API)
     const translatedTitle = `${dutchContent.title} (${targetLang.toUpperCase()})`
@@ -83,18 +202,75 @@ export function MultilingualContent({
         content: translatedContent,
       },
     }))
+
+    const targetLanguage = languages.find(l => l.code === targetLang)
+    toast.success("Content vertaald", {
+      description: `Nederlandse content is vertaald naar ${targetLanguage?.name}.`,
+    })
   }
 
   const getPlaceholder = (field: string, langName: string) => {
     switch (field) {
       case 'title':
-        return `Product title in ${langName}`
+        return `Product titel in ${langName}`
       case 'description':
-        return `Product description in ${langName}`
+        return `Product beschrijving in ${langName}`
       case 'content':
         return `Product content in ${langName}`
       default:
         return ''
+    }
+  }
+
+  const getSaveButtonContent = (langCode: string) => {
+    const state = saveStates[langCode] || 'idle'
+    
+    switch (state) {
+      case 'saving':
+        return (
+          <>
+            <Loader2 className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2 animate-spin" />
+            <span className="hidden sm:inline">Opslaan...</span>
+            <span className="sm:hidden">...</span>
+          </>
+        )
+      case 'success':
+        return (
+          <>
+            <CheckCircle className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+            <span className="hidden sm:inline">Opgeslagen</span>
+            <span className="sm:hidden">✓</span>
+          </>
+        )
+      case 'error':
+        return (
+          <>
+            <AlertCircle className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+            <span className="hidden sm:inline">Fout</span>
+            <span className="sm:hidden">!</span>
+          </>
+        )
+      default:
+        return (
+          <>
+            <Save className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+            <span className="hidden sm:inline">Wijzigingen opslaan</span>
+            <span className="sm:hidden">Opslaan</span>
+          </>
+        )
+    }
+  }
+
+  const getSaveButtonVariant = (langCode: string) => {
+    const state = saveStates[langCode] || 'idle'
+    
+    switch (state) {
+      case 'success':
+        return 'default' as const // or a success variant if you have one
+      case 'error':
+        return 'destructive' as const
+      default:
+        return 'default' as const
     }
   }
 
@@ -112,6 +288,9 @@ export function MultilingualContent({
                   <TabsTrigger key={lang.code} value={lang.code} className="flex items-center gap-2">
                     <span>{lang.flag}</span>
                     <span className="hidden sm:inline">{lang.code.toUpperCase()}</span>
+                    {hasChanges[lang.code] && (
+                      <span className="w-2 h-2 bg-orange-500 rounded-full" title="Niet opgeslagen wijzigingen" />
+                    )}
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -123,19 +302,32 @@ export function MultilingualContent({
                       <span className="text-2xl">{lang.flag}</span>
                       <h3 className="text-lg font-semibold">{lang.name}</h3>
                       <Badge variant="outline">{lang.code.toUpperCase()}</Badge>
+                      {hasChanges[lang.code] && (
+                        <Badge variant="secondary">Niet opgeslagen</Badge>
+                      )}
                     </div>
-
-                    {(lang.code === "de" || lang.code === "fr" || lang.code === "es") && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => translateContent(lang.code)}
-                        className="flex items-center gap-2"
+                    <div className="flex gap-2">
+                      {(lang.code === "de" || lang.code === "fr" || lang.code === "es") && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => translateContent(lang.code)}
+                          className="flex items-center gap-2"
+                        >
+                          <Languages className="h-3 w-3" />
+                          Vertalen
+                        </Button>
+                      )}
+                      <Button 
+                        size="sm" 
+                        className="text-xs md:text-sm"
+                        onClick={() => saveContent(lang.code)}
+                        disabled={saveStates[lang.code] === 'saving'}
+                        variant={getSaveButtonVariant(lang.code)}
                       >
-                        <Languages className="h-4 w-4" />
-                        Vertalen
+                        {getSaveButtonContent(lang.code)}
                       </Button>
-                    )}
+                    </div>
                   </div>
 
                   <div className="space-y-4">
