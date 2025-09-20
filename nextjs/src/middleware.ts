@@ -5,8 +5,10 @@ import { createServerClient } from "@supabase/ssr";
 
 /** Endpoints/folders to protect (regex). Add more as needed. */
 const PROTECTED: RegExp[] = [
-  /^\/api\/airtable$/,      
-    /^\/api\/products$/,            // exact endpoint
+  /^\/api\/airtable$/,      // exact endpoint
+  /^\/api\/products(?:\/.*)?$/,
+  /^\/api\/channels(?:\/.*)?$/,
+  /^\/api\/products(?:\/.*)?$/,           
   // /^\/api\/private(?:\/.*)?$/,   // whole folder
   // /^\/api\/reports$/,            // another example
 ];
