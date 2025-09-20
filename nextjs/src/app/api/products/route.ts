@@ -1,7 +1,7 @@
 // app/api/products/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createSSRClient } from '@/lib/supabase/server'
-import type { ProductData } from '@/app/types/product'
+import type { ProductData, ProductImage, ProductVariant } from '@/app/types/product'
 
 // Additional type for brand query
 interface BrandData {
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
         title,
         brand,
         active_channel_ids,
-        product_image!inner(
+        product_image(
           id,
           url,
           position
@@ -66,7 +66,6 @@ export async function GET(request: NextRequest) {
         ),
         content(*)
       `)
-      .eq('product_image.position', 1)
 
     // Apply search filter
     if (search) {
@@ -99,11 +98,15 @@ export async function GET(request: NextRequest) {
 
     // Transform the data and include matched EAN if applicable
     const transformedProducts: TransformedProduct[] = (data as ProductData[])?.map((item: ProductData) => {
+      // Find the first image with position 1, or fallback to first image, or undefined
+      const primaryImage = item.product_image?.find(img => img.position === 1) 
+        || item.product_image?.[0]
+      
       const product: TransformedProduct = {
         id: item.id,
         title: item.title,
         brand: item.brand,
-        image: item.product_image?.[0]?.url,
+        image: primaryImage?.url,
       }
 
       // If searching and the match was via EAN (not title), include the matched EAN
