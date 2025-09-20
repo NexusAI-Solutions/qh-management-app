@@ -1,7 +1,7 @@
 // app/api/products/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createSSRClient } from '@/lib/supabase/server'
-import type { ProductData, ProductImage, ProductVariant } from '@/app/types/product'
+import type { ProductData } from '@/app/types/product'
 
 // Additional type for brand query
 interface BrandData {
