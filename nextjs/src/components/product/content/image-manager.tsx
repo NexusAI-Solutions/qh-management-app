@@ -1,206 +1,296 @@
 "use client"
 
-import { useState, useRef, useEffect, type DragEvent, type MouseEvent } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { X, Upload } from "lucide-react"
+import { X, Upload, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { ProductImage } from "@/app/types/product"
-
-interface ImageItem extends Omit<ProductImage, 'id' | 'position'> {
-  id: string
-  file?: File
-  url: string
-  isProductImage?: boolean
-  productImageId?: number
-  position?: number
-}
+import { useImageManager, type ImageItem } from "@/app/hooks/useImageManager"
 
 interface ImageManagerProps {
-  initialImages?: ImageItem[]
-  productImages?: ProductImage[]
+  productId: number
+  initialImages?: ProductImage[]
+  onImagesChange?: (images: ProductImage[]) => void
 }
 
-export function ImageManager({ initialImages = [], productImages = [] }: ImageManagerProps) {
-  const [images, setImages] = useState<ImageItem[]>(initialImages)
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+// Component functions
+function DeleteButton({ onDelete, isVisible, isDisabled }: { 
+  onDelete: () => void
+  isVisible: boolean
+  isDisabled?: boolean 
+}) {
+  return (
+    <button
+      onClick={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (!isDisabled) onDelete()
+      }}
+      disabled={isDisabled}
+      className={cn(
+        "absolute top-2 right-2 w-6 h-6 bg-red-500 hover:bg-red-600 rounded-full",
+        "flex items-center justify-center cursor-pointer transition-all duration-200 z-50",
+        "disabled:cursor-not-allowed disabled:opacity-50",
+        isVisible ? "opacity-100 scale-100" : "opacity-0 scale-75"
+      )}
+    >
+      <X size={12} className="text-white" />
+    </button>
+  )
+}
+
+function ImageGridItem({ 
+  image, 
+  index, 
+  isDragging, 
+  isDragOver,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+  onDelete
+}: {
+  image: ImageItem
+  index: number
+  isDragging: boolean
+  isDragOver: boolean
+  onDragStart: (e: React.DragEvent) => void
+  onDragOver: (e: React.DragEvent) => void
+  onDrop: (e: React.DragEvent) => void
+  onDragEnd: () => void
+  onDelete: () => void
+}) {
+  const [isHovered, setIsHovered] = useState(false)
+
+  return (
+    <div
+      draggable={!image.isUploading}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className={cn(
+        "relative cursor-move transition-all duration-200 aspect-square",
+        "border-2 border-gray-200 rounded-lg overflow-hidden",
+        isDragging && "opacity-50 scale-95",
+        isDragOver && "ring-2 ring-primary ring-offset-2",
+        image.isUploading && "opacity-50 cursor-wait"
+      )}
+    >
+      <Image
+        src={image.url}
+        alt={image.file?.name || `Image ${index + 1}`}
+        fill
+        className="object-cover"
+        sizes="(max-width: 768px) 100vw, 25vw"
+        priority={index === 0}
+      />
+
+      {image.isUploading && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+          <Loader2 className="w-6 h-6 text-white animate-spin" />
+        </div>
+      )}
+
+      <DeleteButton 
+        onDelete={onDelete} 
+        isVisible={isHovered && !image.isUploading}
+        isDisabled={image.isUploading}
+      />
+
+      {isHovered && !image.isUploading && (
+        <div className="absolute inset-0 bg-black/20 pointer-events-none" />
+      )}
+    </div>
+  )
+}
+
+function UploadArea({ onUpload, isDisabled }: { 
+  onUpload: (files: FileList | null) => void
+  isDisabled?: boolean 
+}) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const dragCounter = useRef(0)
 
-  useEffect(() => {
-    if (productImages.length > 0) {
-      const productImageItems: ImageItem[] = productImages
-        .sort((a, b) => a.position - b.position)
-        .map((productImage) => ({
-          id: `product-${productImage.id}`,
-          url: productImage.url,
-          isProductImage: true,
-          productImageId: productImage.id,
-          position: productImage.position,
-        }))
-      setImages(productImageItems)
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault()
+    if (!isDisabled) {
+      dragCounter.current++
+      if (dragCounter.current === 1) {
+        setIsDragOver(true)
+      }
     }
-  }, [productImages])
-
-  const handleFileSelect = (files: FileList | null) => {
-    if (!files) return
-
-    const newImages: ImageItem[] = []
-    Array.from(files).forEach((file) => {
-      if (file.type.startsWith("image/")) {
-        const id = Math.random().toString(36).substr(2, 9)
-        const url = URL.createObjectURL(file)
-        newImages.push({ id, file, url })
-      }
-    })
-
-    setImages((prev) => [...prev, ...newImages])
   }
 
-  const handleUploadClick = () => {
-    fileInputRef.current?.click()
-  }
-
-  const handleDeleteImage = (e: MouseEvent, id: string) => {
-    e.stopPropagation()
-    setImages((prev) => {
-      const imageToDelete = prev.find((img) => img.id === id)
-      if (imageToDelete && imageToDelete.file) {
-        URL.revokeObjectURL(imageToDelete.url)
-      }
-      return prev.filter((img) => img.id !== id)
-    })
-  }
-
-  const handleDragStart = (e: DragEvent<HTMLDivElement>, index: number) => {
-    setDraggedIndex(index)
-    e.dataTransfer.effectAllowed = "move"
-  }
-
-  const handleDragOver = (e: DragEvent<HTMLDivElement>, index: number) => {
+  const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault()
-    e.dataTransfer.dropEffect = "move"
-    setDragOverIndex(index)
+    dragCounter.current--
+    if (dragCounter.current === 0) {
+      setIsDragOver(false)
+    }
   }
 
-  const handleDragLeave = () => {
-    setDragOverIndex(null)
-  }
-
-  const handleDrop = (e: DragEvent<HTMLDivElement>, dropIndex: number) => {
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
-    if (draggedIndex === null || draggedIndex === dropIndex) return
-
-    setImages((prev) => {
-      const next = [...prev]
-      const [moved] = next.splice(draggedIndex, 1)
-
-      // Insert AFTER the drop target when moving forward, and BEFORE when moving backward.
-      // Using dropIndex directly achieves that after we've removed the original.
-      const insertIndex = dropIndex
-      next.splice(insertIndex, 0, moved)
-
-      // Update positions after reordering
-      return next.map((img, index) => ({
-        ...img,
-        position: index + 1
-      }))
-    })
-
-    setDraggedIndex(null)
-    setDragOverIndex(null)
   }
 
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    dragCounter.current = 0
+    setIsDragOver(false)
+    if (!isDisabled) {
+      onUpload(e.dataTransfer.files)
+    }
+  }
+
+  const handleClick = () => {
+    if (!isDisabled) {
+      fileInputRef.current?.click()
+    }
+  }
+
+  // Reset drag counter when component unmounts or on drag end
   const handleDragEnd = () => {
-    setDraggedIndex(null)
-    setDragOverIndex(null)
+    dragCounter.current = 0
+    setIsDragOver(false)
   }
 
-  const handleUploadDragOver = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = "copy"
-  }
+  return (
+    <Card
+      className={cn(
+        "p-8 border-2 border-dashed transition-all duration-200",
+        isDisabled && "opacity-50 cursor-not-allowed",
+        isDragOver 
+          ? "border-primary bg-primary/5 scale-[1.02] shadow-lg" 
+          : "border-muted-foreground/25 hover:border-muted-foreground/50"
+      )}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      onDragEnd={handleDragEnd}
+    >
+      <div className={cn(
+        "text-center transition-all duration-200 pointer-events-none",
+        isDragOver && "scale-105"
+      )}>
+        <Upload className={cn(
+          "mx-auto h-12 w-12 mb-4 transition-all duration-200",
+          isDragOver ? "text-primary scale-110" : "text-muted-foreground"
+        )} />
+        <h3 className="text-lg font-semibold mb-2">
+          {isDragOver ? "Drop hier om te uploaden" : "Upload afbeeldingen"}
+        </h3>
+        <p className={cn(
+          "mb-4 transition-all duration-200",
+          isDragOver ? "text-primary font-medium" : "text-muted-foreground"
+        )}>
+          {isDragOver 
+            ? "Laat los om afbeeldingen toe te voegen" 
+            : "Sleep afbeeldingen, of klik om te selecteren"}
+        </p>
+        <p className="text-sm text-muted-foreground mb-4">
+          JPG, PNG, WebP • Max 2MB
+        </p>
+        <Button 
+          onClick={handleClick} 
+          variant={isDragOver ? "default" : "outline"}
+          disabled={isDisabled}
+          className={cn(
+            "transition-all duration-200 pointer-events-auto",
+            isDragOver && "hidden"
+          )}
+        >
+          Afbeeldingen selecteren
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/jpeg,image/jpg,image/png,image/webp"
+          onChange={(e) => onUpload(e.target.files)}
+          className="hidden"
+        />
+      </div>
+    </Card>
+  )
+}
 
-  const handleUploadDrop = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    const files = e.dataTransfer.files
-    handleFileSelect(files)
+// Main component
+export function ImageManager({ 
+  productId, 
+  initialImages = [], 
+  onImagesChange 
+}: ImageManagerProps) {
+  const {
+    // State
+    images,
+    isLoading,
+    uploadQueueLength,
+    
+    // Image operations
+    addImages,
+    deleteImage,
+    
+    // Drag and drop
+    draggedIndex,
+    dragOverIndex,
+    handleDragStart,
+    handleDragOver,
+    handleDrop,
+    resetDragState
+  } = useImageManager({ productId, initialImages, onImagesChange })
+
+  const hasReachedLimit = images.filter(img => img.isProductImage).length >= 8
+
+  if (isLoading && images.length === 0) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="w-8 h-8 animate-spin" />
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
-      {/* Images Grid */}
       {images.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Afbeeldingen ({images.length})</h3>
+          <h3 className="text-lg font-semibold">
+            Afbeeldingen ({images.filter(img => img.isProductImage).length}/8)
+            {uploadQueueLength > 0 && (
+              <span className="ml-2 text-sm text-muted-foreground">
+                ({uploadQueueLength} uploading...)
+              </span>
+            )}
+          </h3>
           <div className="grid grid-cols-4 gap-4">
             {images.map((image, index) => (
-                <div
+              <ImageGridItem
                 key={image.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, index)}
+                image={image}
+                index={index}
+                isDragging={draggedIndex === index}
+                isDragOver={dragOverIndex === index && draggedIndex !== index}
+                onDragStart={() => handleDragStart(index)}
                 onDragOver={(e) => handleDragOver(e, index)}
-                onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, index)}
-                onDragEnd={handleDragEnd}
-                className={cn(
-                  "relative group cursor-move transition-all duration-200 aspect-square",
-                  draggedIndex === index && "opacity-50 scale-95",
-                  dragOverIndex === index && draggedIndex !== index && "ring-2 ring-primary ring-offset-2",
-                )}
-                >
-                <Image
-                  src={image.url || "/placeholder.svg"}
-                  alt={image.file?.name || `Product image ${index + 1}`}
-                  fill
-                  className="object-cover rounded-lg border shadow-sm"
-                  sizes="(max-width: 768px) 100vw, 25vw"
-                  style={{ objectFit: "cover" }}
-                  priority={index === 0}
-                />
-
-                {!image.isProductImage && (
-                  <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={(e) => handleDeleteImage(e, image.id)}
-                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 h-6 w-6 p-0 pointer-events-auto"
-                  >
-                  <X className="h-3 w-3" />
-                  </Button>
-                )}
-
-                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-lg pointer-events-none" />
-                </div>
+                onDragEnd={resetDragState}
+                onDelete={() => deleteImage(image.id)}
+              />
             ))}
           </div>
         </div>
       )}
 
-      {/* Upload Area */}
-      <Card
-        className="p-8 border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 transition-colors"
-        onDragOver={handleUploadDragOver}
-        onDrop={handleUploadDrop}
-      >
-        <div className="text-center">
-          <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">Upload afbeeldingen</h3>
-          <p className="text-muted-foreground mb-4">Sleep afbeeldingen, of klik om te selecteren</p>
-          <Button onClick={handleUploadClick} variant="outline">
-            Afbeeldingen selecteren
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={(e) => handleFileSelect(e.target.files)}
-            className="hidden"
-          />
-        </div>
-      </Card>
+      <UploadArea 
+        onUpload={addImages} 
+        isDisabled={hasReachedLimit || uploadQueueLength > 0}
+      />
     </div>
   )
 }

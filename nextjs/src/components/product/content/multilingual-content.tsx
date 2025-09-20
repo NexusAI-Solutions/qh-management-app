@@ -401,7 +401,7 @@ export function MultilingualContent({
           </div>
 
           <div className="lg:col-span-1">
-            <ImageManager productImages={productImages} />
+            <ImageManager initialImages={productImages} productId={productId}/>
           </div>
         </div>
       </CardContent>

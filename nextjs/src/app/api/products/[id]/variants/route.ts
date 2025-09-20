@@ -9,14 +9,14 @@ type VariantRow = Database['public']['Tables']['variant']['Row'];
 // GET /api/products/[id]/variants - List all variants for a product
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ variantId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
-    const { variantId } = await params;
+    const { id } = await params;
     const supabase = await createSSRClient();
 
     // Validate id
-    const idNum = parseInt(variantId, 10);
+    const idNum = parseInt(id, 10);
     if (isNaN(idNum)) {
       return NextResponse.json(
         { error: 'Invalid product ID' },

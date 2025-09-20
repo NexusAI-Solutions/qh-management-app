@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
         hostname: 'cdn.webshopapp.com',  // The domain you're allowing
         pathname: '/**',  // Allows all paths from the domain
       },
+      {
+        protocol: 'https',
+        hostname: 'xlrzbfnheqpszgtyhdkh.supabase.co',  // The domain you're allowing
+        pathname: '/**',  // Allows all paths from the domain
+      },
     ],
   },
 };
