@@ -1,11 +1,21 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CheckCircle, XCircle, Loader2, AlertTriangle } from "lucide-react"
 import type { ApiProduct } from "@/app/types/product" // Update with correct import path
+
+// Module-level cache for channels and status data
+interface CacheEntry {
+  channels: Channel[]
+  status: Record<string, WebsiteStatus>
+  timestamp: number
+}
+
+const channelsCache: Record<number, CacheEntry> = {}
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 interface Channel {
   id: number
@@ -28,22 +38,43 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
   const [channels, setChannels] = useState<Channel[]>([])
   const [websiteStatus, setWebsiteStatus] = useState<Record<string, WebsiteStatus>>({})
   const [isLoadingChannels, setIsLoadingChannels] = useState(true)
-  
   // Helper function to normalize active_channel_ids to number array
   const normalizeChannelIds = (ids: (string | number)[] | undefined): number[] => {
     if (!ids) return []
-    
+
     // Convert string or number array to number array
     return ids
       .map(id => typeof id === "number" ? id : parseInt(id, 10))
       .filter(id => !isNaN(id))
   }
-  
+
   const [activeChannelIds, setActiveChannelIds] = useState<number[]>(() =>
     normalizeChannelIds(product?.active_channel_ids)
   )
   const [updatingChannel, setUpdatingChannel] = useState<number | null>(null)
-  const loadComplete = useRef(false)
+
+  // Cache helper functions
+  const getCachedData = (productId: number): CacheEntry | null => {
+    const cached = channelsCache[productId]
+    if (!cached) return null
+
+    // Check if cache is still valid (TTL)
+    if (Date.now() - cached.timestamp > CACHE_TTL) {
+      delete channelsCache[productId]
+      return null
+    }
+
+    return cached
+  }
+
+  const setCachedData = (productId: number, channels: Channel[], status: Record<string, WebsiteStatus>) => {
+    channelsCache[productId] = {
+      channels,
+      status,
+      timestamp: Date.now()
+    }
+  }
+
 
   const checkProductOnChannel = async (channelId: number, ean: string): Promise<{ published: boolean, error: boolean }> => {
     try {
@@ -122,10 +153,20 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
 
   useEffect(() => {
     const loadChannelsAndStatus = async () => {
-      if (loadComplete.current || !product?.variants) {
+      if (!product?.variants || !product?.id) {
         return
       }
-      loadComplete.current = true
+
+      // Check if we have cached data for this product
+      const cachedData = getCachedData(product.id)
+      if (cachedData) {
+        setChannels(cachedData.channels)
+        setWebsiteStatus(cachedData.status)
+        setIsLoadingChannels(false)
+        return
+      }
+
+      // No cache found, load from API
       setIsLoadingChannels(true)
 
       // Move the function inside the useEffect to avoid dependency issues
@@ -196,6 +237,13 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
               loading: false
             }
           })
+
+          // Cache the results for future use
+          setCachedData(product.id, channelsData.map((channel: { id: number; name: string | null }) => ({
+            id: channel.id,
+            name: channel.name ?? "",
+          })), updatedStatus)
+
           return updatedStatus
         })
       } catch (error) {
@@ -206,7 +254,7 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
     }
 
     loadChannelsAndStatus()
-  }, [product?.variants]) // Remove getEanFromVariants from dependencies since it's now inside the effect
+  }, [product?.variants, product?.id]) // Triggers when product changes
 
   if (!product) {
     return (
