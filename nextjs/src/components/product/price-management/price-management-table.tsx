@@ -4,13 +4,17 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { ProductVariant } from "@/app/types/product"
+import { toast } from "sonner"
+import { Save, Loader2, CheckCircle, AlertCircle } from "lucide-react"
 
 interface PriceData {
   variantId: number
-  prices: Record<string, number>
+  prices: Record<string, number | null>
   margins: Record<string, number>
-  buyPrice: number // Added buy price per variant
+  buyPrice: number
+  hasChanges: boolean
 }
 
 const countries = [
@@ -24,49 +28,45 @@ export function PriceManagementTable({ variants }: { variants: ProductVariant[] 
   const [priceData, setPriceData] = useState<PriceData[]>(
     variants.map((variant) => {
       const buyPrice = 125.0
-      
+
       // Initialize prices from ProductVariant's price array or use defaults
-      const initialPrices: Record<string, number> = {}
+      const initialPrices: Record<string, number | null> = {}
       const initialMargins: Record<string, number> = {}
-      
+
       countries.forEach((country) => {
         // Try to find existing price for this country from variant.price array
-        const existingPrice = variant.price?.find(p => p.country_code === country.code)
-        const price = existingPrice?.price ?? getDefaultPrice(country.code)
-        
+        const existingPrice = variant.price?.find(p =>
+          p.country_code?.toLowerCase() === country.code.toLowerCase()
+        )
+        const price = existingPrice?.price ?? null
+
         initialPrices[country.code] = price
-        initialMargins[country.code] = ((price - buyPrice) / price) * 100
+        initialMargins[country.code] = price && price > 0 ? ((price - buyPrice) / price) * 100 : 0
       })
-      
+
       return {
         variantId: variant.id,
         buyPrice,
         prices: initialPrices,
         margins: initialMargins,
+        hasChanges: false,
       }
     }),
   )
 
-  // Helper function to get default prices per country
-  function getDefaultPrice(countryCode: string): number {
-    const defaults: Record<string, number> = {
-      nl: 249.99,
-      de: 259.99,
-      fr: 269.99,
-      es: 239.99,
-    }
-    return defaults[countryCode] ?? 249.99
-  }
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'success' | 'error'>('idle')
 
-  const updatePrice = (variantId: number, countryCode: string, price: number) => {
+
+  const updatePrice = (variantId: number, countryCode: string, price: number | null) => {
     setPriceData((prev) =>
       prev.map((data) => {
         if (data.variantId === variantId) {
-          const newMargin = price > 0 ? ((price - data.buyPrice) / price) * 100 : 0
+          const newMargin = price && price > 0 ? ((price - data.buyPrice) / price) * 100 : 0
           return {
             ...data,
             prices: { ...data.prices, [countryCode]: price },
             margins: { ...data.margins, [countryCode]: newMargin },
+            hasChanges: true,
           }
         }
         return data
@@ -74,13 +74,137 @@ export function PriceManagementTable({ variants }: { variants: ProductVariant[] 
     )
   }
 
+  const hasAnyChanges = priceData.some(data => data.hasChanges)
+
+  const saveAllPrices = async () => {
+    setSaveState('saving')
+    let successCount = 0
+    let errorCount = 0
+
+    try {
+      for (const data of priceData) {
+        if (!data.hasChanges) continue
+
+        const variant = variants.find(v => v.id === data.variantId)
+        if (!variant?.ean) {
+          errorCount++
+          continue
+        }
+
+        const priceUpdates = countries
+          .filter(country => data.prices[country.code] !== null)
+          .map(country => ({
+            country_code: country.code.toUpperCase(),
+            price: data.prices[country.code],
+          }))
+
+        try {
+          const response = await fetch(`/api/prices/${encodeURIComponent(variant.ean)}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(priceUpdates),
+          })
+
+          if (response.ok) {
+            successCount++
+          } else {
+            errorCount++
+            console.error(`Failed to save prices for variant ${variant.id}:`, await response.text())
+          }
+        } catch (error) {
+          errorCount++
+          console.error(`Error saving prices for variant ${variant.id}:`, error)
+        }
+      }
+
+      if (successCount > 0) {
+        setPriceData(prev => prev.map(data => ({ ...data, hasChanges: false })))
+        setSaveState('success')
+        toast.success(`Prijzen opgeslagen`, {
+          description: `Prijzen succesvol opgeslagen voor ${successCount} variant${successCount > 1 ? 'en' : ''}.`
+        })
+
+        setTimeout(() => {
+          setSaveState('idle')
+        }, 2000)
+      } else if (errorCount > 0) {
+        setSaveState('error')
+        toast.error(`Fout bij opslaan prijzen`, {
+          description: `Kon prijzen niet opslaan voor ${errorCount} variant${errorCount > 1 ? 'en' : ''}.`
+        })
+
+        setTimeout(() => {
+          setSaveState('idle')
+        }, 3000)
+      }
+    } catch (error) {
+      setSaveState('error')
+      toast.error('Onverwachte fout', {
+        description: 'Er is een onverwachte fout opgetreden bij het opslaan van prijzen.'
+      })
+      console.error('Save prices error:', error)
+
+      setTimeout(() => {
+        setSaveState('idle')
+      }, 3000)
+    }
+  }
+
   const formatMargin = (margin: number) => `${margin.toFixed(1)}%`
+
+  const getSaveButtonContent = () => {
+    switch (saveState) {
+      case 'saving':
+        return (
+          <>
+            <Loader2 className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2 animate-spin" />
+            <span className="hidden sm:inline">Opslaan...</span>
+            <span className="sm:hidden">...</span>
+          </>
+        )
+      case 'success':
+        return (
+          <>
+            <CheckCircle className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+            <span className="hidden sm:inline">Opgeslagen</span>
+            <span className="sm:hidden">✓</span>
+          </>
+        )
+      case 'error':
+        return (
+          <>
+            <AlertCircle className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+            <span className="hidden sm:inline">Fout</span>
+            <span className="sm:hidden">!</span>
+          </>
+        )
+      default:
+        return (
+          <>
+            <Save className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+            <span className="hidden sm:inline">Wijzigingen opslaan</span>
+            <span className="sm:hidden">Opslaan</span>
+          </>
+        )
+    }
+  }
 
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg md:text-xl">Prijsbeheer</CardTitle>
+          <Button
+            size="sm"
+            className="text-xs md:text-sm ml-auto"
+            onClick={saveAllPrices}
+            disabled={saveState === 'saving' || !hasAnyChanges}
+            variant={saveState === 'error' ? 'destructive' : 'default'}
+          >
+            {getSaveButtonContent()}
+          </Button>
         </div>
       </CardHeader>
       <CardContent>
@@ -138,12 +262,13 @@ export function PriceManagementTable({ variants }: { variants: ProductVariant[] 
                               <Input
                                 type="number"
                                 step="0.01"
-                                value={variantPriceData?.prices[country.code] || 0}
+                                value={variantPriceData?.prices[country.code] || ""}
                                 onChange={(e) =>
-                                  updatePrice(variant.id, country.code, Number.parseFloat(e.target.value) || 0)
+                                  updatePrice(variant.id, country.code, e.target.value === "" ? null : Number.parseFloat(e.target.value) || 0)
                                 }
                                 className="text-center font-mono text-xs md:text-sm h-7 md:h-8 pl-6 md:pl-8 w-24 md:w-32"
                                 placeholder="0.00"
+                                disabled={!variant.ean}
                               />
                             </div>
                           </div>
