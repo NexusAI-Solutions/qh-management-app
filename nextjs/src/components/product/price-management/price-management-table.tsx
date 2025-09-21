@@ -18,7 +18,7 @@ const calculateMargin = (sellPrice: number | null, buyPrice: number): number => 
   if (!sellPrice || sellPrice <= 0 || buyPrice <= 0) {
     return 0
   }
-  return ((sellPrice - buyPrice) / buyPrice) * 100
+  return (((sellPrice/1.21) - buyPrice) / buyPrice) * 100
 }
 
 // Helper function to initialize price data for a variant
