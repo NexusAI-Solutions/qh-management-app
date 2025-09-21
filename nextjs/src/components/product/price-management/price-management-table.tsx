@@ -5,9 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { ProductVariant } from "@/app/types/product"
 import { toast } from "sonner"
-import { Save, Loader2, CheckCircle, AlertCircle } from "lucide-react"
+import { Save, Loader2, CheckCircle, AlertCircle, AlertTriangle } from "lucide-react"
+
+const MARGIN = 30 // Minimum acceptable margin percentage
 
 interface PriceData {
   variantId: number
@@ -41,7 +44,7 @@ export function PriceManagementTable({ variants }: { variants: ProductVariant[] 
         const price = existingPrice?.price ?? null
 
         initialPrices[country.code] = price
-        initialMargins[country.code] = price && price > 0 ? ((price - buyPrice) / price) * 100 : 0
+        initialMargins[country.code] = price && price > 0 ? ((price - buyPrice) / buyPrice) * 100 : 0
       })
 
       return {
@@ -55,13 +58,15 @@ export function PriceManagementTable({ variants }: { variants: ProductVariant[] 
   )
 
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'success' | 'error'>('idle')
+  const [showMarginDialog, setShowMarginDialog] = useState(false)
+  const [lowMarginVariants, setLowMarginVariants] = useState<Array<{variant: ProductVariant, margin: number, country: string}>>([])
 
 
   const updatePrice = (variantId: number, countryCode: string, price: number | null) => {
     setPriceData((prev) =>
       prev.map((data) => {
         if (data.variantId === variantId) {
-          const newMargin = price && price > 0 ? ((price - data.buyPrice) / price) * 100 : 0
+          const newMargin = price && price > 0 ? ((price - data.buyPrice) / data.buyPrice) * 100 : 0
           return {
             ...data,
             prices: { ...data.prices, [countryCode]: price },
@@ -76,7 +81,36 @@ export function PriceManagementTable({ variants }: { variants: ProductVariant[] 
 
   const hasAnyChanges = priceData.some(data => data.hasChanges)
 
-  const saveAllPrices = async () => {
+  // Validate margins and collect variants with low margins
+  const validateMargins = () => {
+    const lowMargins: Array<{variant: ProductVariant, margin: number, country: string}> = []
+
+    for (const data of priceData) {
+      if (!data.hasChanges) continue
+
+      const variant = variants.find(v => v.id === data.variantId)
+      if (!variant) continue
+
+      countries.forEach((country) => {
+        const margin = data.margins[country.code]
+        const price = data.prices[country.code]
+
+        // Only check if there's a price set and margin is below 20%
+        if (price && price > 0 && margin < MARGIN) {
+          lowMargins.push({
+            variant,
+            margin,
+            country: country.name
+          })
+        }
+      })
+    }
+
+    return lowMargins
+  }
+
+  // Function to handle the actual save process
+  const performSave = async () => {
     setSaveState('saving')
     let successCount = 0
     let errorCount = 0
@@ -152,6 +186,34 @@ export function PriceManagementTable({ variants }: { variants: ProductVariant[] 
     }
   }
 
+  // Main save function with margin validation
+  const saveAllPrices = async () => {
+    // First, validate margins
+    const lowMargins = validateMargins()
+
+    if (lowMargins.length > 0) {
+      // Show dialog for confirmation
+      setLowMarginVariants(lowMargins)
+      setShowMarginDialog(true)
+      return
+    }
+
+    // No low margins, proceed with save
+    await performSave()
+  }
+
+  // Handle dialog confirmation
+  const handleConfirmSave = async () => {
+    setShowMarginDialog(false)
+    await performSave()
+  }
+
+  // Handle dialog cancellation
+  const handleCancelSave = () => {
+    setShowMarginDialog(false)
+    setLowMarginVariants([])
+  }
+
   const formatMargin = (margin: number) => `${margin.toFixed(1)}%`
 
   const getSaveButtonContent = () => {
@@ -192,6 +254,7 @@ export function PriceManagementTable({ variants }: { variants: ProductVariant[] 
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -276,9 +339,9 @@ export function PriceManagementTable({ variants }: { variants: ProductVariant[] 
                             <Badge
                               variant="outline"
                               className={`text-xs font-medium ${
-                                (variantPriceData?.margins[country.code] || 0) > 40
+                                (variantPriceData?.margins[country.code] || 0) > 50
                                   ? "border-green-200 text-green-700 bg-green-50"
-                                  : (variantPriceData?.margins[country.code] || 0) > 20
+                                  : (variantPriceData?.margins[country.code] || 0) > MARGIN
                                     ? "border-yellow-200 text-yellow-700 bg-yellow-50"
                                     : "border-red-200 text-red-700 bg-red-50"
                               }`}
@@ -297,5 +360,48 @@ export function PriceManagementTable({ variants }: { variants: ProductVariant[] 
         </div>
       </CardContent>
     </Card>
+
+    {/* Low Margin Warning Dialog */}
+    <Dialog open={showMarginDialog} onOpenChange={setShowMarginDialog}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-amber-500" />
+            Lage marges gedetecteerd
+          </DialogTitle>
+          <DialogDescription>
+            De volgende prijzen hebben een marge onder de {MARGIN}%. Weet je zeker dat je wilt doorgaan?
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 max-h-60 overflow-y-auto">
+          {lowMarginVariants.map((item, index) => (
+            <div key={index} className="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-200">
+              <div className="flex-1">
+                <div className="font-medium text-sm">
+                  {item.variant.title || `Variant ${item.variant.id}`}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {item.country}
+                </div>
+              </div>
+              <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-100">
+                {item.margin.toFixed(1)}% marge
+              </Badge>
+            </div>
+          ))}
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={handleCancelSave}>
+            Annuleren
+          </Button>
+          <Button onClick={handleConfirmSave} className="bg-amber-600 hover:bg-amber-700">
+            Toch opslaan
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </>
   )
 }
