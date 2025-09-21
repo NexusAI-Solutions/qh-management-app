@@ -63,6 +63,45 @@ export default function ProductDetailPage() {
   const router = useRouter()
   const productId = Array.isArray(params.id) ? params.id[0] : params.id
 
+  // Function to refresh product data
+  const refreshProductData = async () => {
+    if (!productId || productId === "[id]") {
+      return
+    }
+
+    try {
+      // Call the API endpoint to get fresh data
+      const response = await fetch(`/api/products/${productId}`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push('/auth/login')
+          return
+        } else if (response.status === 404) {
+          throw new Error('Product not found')
+        } else if (response.status === 400) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Invalid request')
+        } else {
+          throw new Error('Failed to fetch product')
+        }
+      }
+
+      const data: ApiProduct = await response.json()
+      console.log("[v0] Product data refreshed:", data)
+      setProductData(data)
+
+    } catch (err) {
+      console.error("[v0] Error refreshing product data:", err)
+      // Don't set error state for refresh failures to avoid disrupting UI
+    }
+  }
+
   useEffect(() => {
     async function fetchProduct() {
       if (!productId || productId === "[id]") {
@@ -103,7 +142,7 @@ export default function ProductDetailPage() {
         const data: ApiProduct = await response.json()     // <-- ApiProduct
         console.log("[v0] Product data received:", data)
         setProductData(data)
-        
+
       } catch (err) {
         console.log("[v0] Error caught:", err)
         const errorMessage = err instanceof Error ? err.message : "Failed to fetch product"
@@ -238,7 +277,7 @@ export default function ProductDetailPage() {
               {loading ? (
                 <TabContentSkeleton />
               ) : (
-                productData && <ContentTab product={productData} />
+                productData && <ContentTab product={productData} onVariantChange={refreshProductData} />
               )}
             </TabsContent>
 

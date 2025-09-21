@@ -13,6 +13,7 @@ import { useProductVariants } from "@/app/hooks/useProductVariants"
 interface VariantManagerProps {
   productId: number
   variants: ProductVariant[]
+  onVariantChange?: () => void
 }
 
 // Interface for local unsaved variants
@@ -21,7 +22,7 @@ interface LocalVariant extends ProductVariant {
   tempId?: string
 }
 
-export function VariantManager({ productId, variants: initialVariants }: VariantManagerProps) {
+export function VariantManager({ productId, variants: initialVariants, onVariantChange }: VariantManagerProps) {
   const {
     variants: apiVariants,
     isLoading,
@@ -120,23 +121,28 @@ export function VariantManager({ productId, variants: initialVariants }: Variant
         
         // Create the variant via API
         await createVariant(currentTitle, currentEan || undefined)
-        
+
         // Remove from local variants
         setLocalVariants(prev => prev.filter(v => v.tempId !== id))
-        
+
         // Clear pending updates
         setPendingUpdates(prev => {
           const updated = new Map(prev)
           updated.delete(id)
           return updated
         })
-        
+
         setEditingId(null)
         setLocalErrors(prev => {
           const updated = new Map(prev)
           updated.delete(id)
           return updated
         })
+
+        // Trigger product data refresh
+        if (onVariantChange) {
+          onVariantChange()
+        }
       } catch (err) {
         console.error('Failed to create variant:', err)
         setLocalErrors(prev => {
@@ -171,20 +177,25 @@ export function VariantManager({ productId, variants: initialVariants }: Variant
       try {
         setSavingIds(prev => new Set(prev).add(id))
         await updateVariant(id as number, updates)
-        
+
         // Clear pending updates for this variant
         setPendingUpdates(prev => {
           const updated = new Map(prev)
           updated.delete(id)
           return updated
         })
-        
+
         setEditingId(null)
         setLocalErrors(prev => {
           const updated = new Map(prev)
           updated.delete(id)
           return updated
         })
+
+        // Trigger product data refresh
+        if (onVariantChange) {
+          onVariantChange()
+        }
       } catch (err) {
         console.error('Failed to update variant:', err)
         setLocalErrors(prev => {
@@ -256,17 +267,22 @@ export function VariantManager({ productId, variants: initialVariants }: Variant
     try {
       setDeletingIds(prev => new Set(prev).add(id as number))
       await deleteVariant(id as number)
-      
+
       if (editingId === id) {
         setEditingId(null)
       }
-      
+
       // Clear any pending updates for deleted variant
       setPendingUpdates(prev => {
         const updated = new Map(prev)
         updated.delete(id)
         return updated
       })
+
+      // Trigger product data refresh
+      if (onVariantChange) {
+        onVariantChange()
+      }
     } catch (err) {
       console.error('Failed to delete variant:', err)
     } finally {
@@ -321,6 +337,11 @@ export function VariantManager({ productId, variants: initialVariants }: Variant
     
     try {
       await reorderVariants(reorderedVariants)
+
+      // Trigger product data refresh after successful reorder
+      if (onVariantChange) {
+        onVariantChange()
+      }
     } catch (err) {
       console.error('Failed to reorder variants:', err)
       // The hook will handle reverting the optimistic update

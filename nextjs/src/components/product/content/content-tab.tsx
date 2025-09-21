@@ -6,9 +6,10 @@ import { ApiProduct } from "@/app/types/product"
 
 interface ContentTabProps {
   product: ApiProduct
+  onVariantChange?: () => void
 }
 
-export function ContentTab({ product }: ContentTabProps) {
+export function ContentTab({ product, onVariantChange }: ContentTabProps) {
   
   return (
     <div className="space-y-6 md:space-y-8">
@@ -20,9 +21,10 @@ export function ContentTab({ product }: ContentTabProps) {
           product={product} 
         />
         {/* Variant Management */}
-        <VariantManager 
-          variants={product.variants} 
+        <VariantManager
+          variants={product.variants}
           productId={product.id}
+          onVariantChange={onVariantChange}
         />
       </div>
 
