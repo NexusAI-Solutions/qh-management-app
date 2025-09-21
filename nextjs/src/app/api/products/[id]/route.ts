@@ -16,6 +16,7 @@ type DbProduct = {
   active_channel_ids: string[] | null; // Fixed: should be string[] not number[]
   product_image: ProductImage[];
   variant: ProductVariant[];
+  content: ProductContent[];
 };
 
 type PriceMap = Record<
@@ -46,27 +47,22 @@ export async function GET(
   /* ---------- Supabase queries ---------- */
   const supabase = await createSSRClient();
 
-  const [productResult, contentResult] = await Promise.all([
-    supabase
-      .from('product')
-      .select(
-        `
-        id,
-        brand,
-        title,
-        active_channel_ids,
-        product_image(id, url, position),
-        variant(id, title, ean, position)
-      `,
-      )
-      .eq('id', numericId)
-      .single(),
-
-    supabase
-      .from('content')
-      .select('title, description, content, locale')
-      .eq('product_id', numericId),
-  ]);
+  // Single optimized query with all necessary data
+  const productResult = await supabase
+    .from('product')
+    .select(
+      `
+      id,
+      brand,
+      title,
+      active_channel_ids,
+      product_image(id, url, position),
+      variant(id, title, ean, position),
+      content(title, description, content, locale)
+    `,
+    )
+    .eq('id', numericId)
+    .single();
 
   /* ---------- error handling ---------- */
   if (productResult.error) {
@@ -83,7 +79,7 @@ export async function GET(
 
   /* ---------- raw data ---------- */
   const product = productResult.data as DbProduct;
-  const productContent = (contentResult.data as ProductContent[]) ?? [];
+  const productContent = product.content ?? [];
 
   /* ---------- price lookup ---------- */
   const variantEans = product.variant

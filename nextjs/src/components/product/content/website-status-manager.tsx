@@ -15,7 +15,8 @@ interface CacheEntry {
 }
 
 const channelsCache: Record<number, CacheEntry> = {}
-const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+const CACHE_TTL = 1 * 60 * 1000 // 1 minute
+const activeRequests: Record<number, Promise<void>> = {} // Request deduplication
 
 interface Channel {
   id: number
@@ -166,20 +167,35 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
         return
       }
 
+      // Check if there's already a request in progress for this product
+      if (activeRequests[product.id]) {
+        await activeRequests[product.id]
+        // After waiting, check cache again
+        const freshCachedData = getCachedData(product.id)
+        if (freshCachedData) {
+          setChannels(freshCachedData.channels)
+          setWebsiteStatus(freshCachedData.status)
+          setIsLoadingChannels(false)
+          return
+        }
+      }
+
       // No cache found, load from API
       setIsLoadingChannels(true)
 
-      // Move the function inside the useEffect to avoid dependency issues
-      const getEanFromVariants = (variants: Array<{ ean?: string | null; position?: number | null }>): string | null => {
-        if (!variants || variants.length === 0) return null
-        
-        const sortedVariants = [...variants].sort((a, b) => 
-          (a.position ?? 0) - (b.position ?? 0)
-        )
-        return sortedVariants[0]?.ean || null
-      }
+      // Create a promise for this request to enable deduplication
+      const requestPromise = (async () => {
+        // Move the function inside the useEffect to avoid dependency issues
+        const getEanFromVariants = (variants: Array<{ ean?: string | null; position?: number | null }>): string | null => {
+          if (!variants || variants.length === 0) return null
 
-      try {
+          const sortedVariants = [...variants].sort((a, b) =>
+            (a.position ?? 0) - (b.position ?? 0)
+          )
+          return sortedVariants[0]?.ean || null
+        }
+
+        try {
         // Fetch channels using the API endpoint
         const channelsResponse = await fetch('/api/channels')
         if (!channelsResponse.ok) {
@@ -246,10 +262,21 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
 
           return updatedStatus
         })
-      } catch (error) {
-        console.error("Error loading channels:", error)
+        } catch (error) {
+          console.error("Error loading channels:", error)
+        } finally {
+          setIsLoadingChannels(false)
+        }
+      })()
+
+      // Store the active request for deduplication
+      activeRequests[product.id] = requestPromise
+
+      try {
+        await requestPromise
       } finally {
-        setIsLoadingChannels(false)
+        // Clean up the active request
+        delete activeRequests[product.id]
       }
     }
 
