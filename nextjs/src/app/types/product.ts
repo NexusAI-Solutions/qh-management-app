@@ -21,12 +21,18 @@ export interface ProductVariant {
   price?: ProductPrice[] | null;
   ean: string | null;
   position: number | null;
+  buyprice?: number | null;
 }
 
 export interface ProductPrice {
   country_code: string | null;
   price: number | null;
   ean_reference: string | null;
+}
+
+export interface ProductBuyprice {
+  ean_reference: string;
+  buyprice: number | null;
 }
 
 export interface ProductContent {

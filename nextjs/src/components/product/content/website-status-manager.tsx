@@ -168,7 +168,7 @@ export function WebsiteStatusManager({ product, onChannelUpdate }: WebsiteStatus
       }
 
       // Check if there's already a request in progress for this product
-      if (activeRequests[product.id]) {
+      if (product.id in activeRequests) {
         await activeRequests[product.id]
         // After waiting, check cache again
         const freshCachedData = getCachedData(product.id)

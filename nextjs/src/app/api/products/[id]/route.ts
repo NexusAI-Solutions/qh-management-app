@@ -24,6 +24,64 @@ type PriceMap = Record<
   Array<{ country_code: string | null; price: number | null }>
 >;
 
+type BuypriceMap = Record<string, number | null>;
+
+/* -------------------------------------------------- */
+/* Helper functions                                   */
+/* -------------------------------------------------- */
+
+async function fetchPricesAndBuyprices(
+  supabase: Awaited<ReturnType<typeof createSSRClient>>,
+  variantEans: string[]
+): Promise<{ pricesByEan: PriceMap; buypricesByEan: BuypriceMap }> {
+  if (variantEans.length === 0) {
+    return { pricesByEan: {}, buypricesByEan: {} };
+  }
+
+  // Fetch prices and buyprices in parallel
+  const [priceResult, buypriceResult] = await Promise.all([
+    supabase
+      .from('price')
+      .select('ean_reference, country_code, price')
+      .in('ean_reference', variantEans),
+    supabase
+      .from('buyprice')
+      .select('ean_reference, buyprice')
+      .in('ean_reference', variantEans)
+  ]);
+
+  // Process prices
+  let pricesByEan: PriceMap = {};
+  if (!priceResult.error && priceResult.data && Array.isArray(priceResult.data)) {
+    pricesByEan = priceResult.data.reduce((acc: PriceMap, row) => {
+      if (row && typeof row === 'object' && row.ean_reference) {
+        (acc[row.ean_reference] ||= []).push({
+          country_code: row.country_code,
+          price: row.price
+        });
+      }
+      return acc;
+    }, {});
+  } else if (priceResult.error) {
+    console.error('Error fetching prices:', priceResult.error);
+  }
+
+  // Process buyprices
+  let buypricesByEan: BuypriceMap = {};
+  if (!buypriceResult.error && buypriceResult.data && Array.isArray(buypriceResult.data)) {
+    buypricesByEan = buypriceResult.data.reduce((acc: BuypriceMap, row) => {
+      if (row && typeof row === 'object' && row.ean_reference) {
+        acc[row.ean_reference] = row.buyprice;
+      }
+      return acc;
+    }, {});
+  } else if (buypriceResult.error) {
+    console.error('Error fetching buyprices:', buypriceResult.error);
+  }
+
+  return { pricesByEan, buypricesByEan };
+}
+
 /* -------------------------------------------------- */
 /* API route                                          */
 /* -------------------------------------------------- */
@@ -81,27 +139,12 @@ export async function GET(
   const product = productResult.data as DbProduct;
   const productContent = product.content ?? [];
 
-  /* ---------- price lookup ---------- */
+  /* ---------- price and buyprice lookup ---------- */
   const variantEans = product.variant
     .map((v) => v.ean)
     .filter((ean): ean is string => !!ean);
 
-  let pricesByEan: PriceMap = {};
-
-  if (variantEans.length) {
-    const { data: priceRows, error: priceError } = await supabase
-      .from('price')
-      .select('ean_reference, country_code, price')
-      .in('ean_reference', variantEans);
-
-    if (!priceError && priceRows) {
-      pricesByEan = priceRows.reduce<PriceMap>((acc, row) => {
-        const ean = row.ean_reference!;
-        (acc[ean] ||= []).push({ country_code: row.country_code, price: row.price });
-        return acc;
-      }, {});
-    }
-  }
+  const { pricesByEan, buypricesByEan } = await fetchPricesAndBuyprices(supabase, variantEans);
 
   /* ---------- helpers ---------- */
   const nlContent = productContent.find((c) => c.locale === 'NL');
@@ -121,18 +164,21 @@ export async function GET(
     .sort((a, b) => (a.position ?? 999) - (b.position ?? 999))
     .map((img) => ({ id: img.id, url: img.url, position: img.position }));
 
-  // Fixed: variants now match ProductVariant type with price array
+  // Fixed: variants now match ProductVariant type with price array and buyprice number
   const variants: ProductVariant[] = product.variant.map((v) => ({
     id: v.id,
     title: v.title,
     ean: v.ean,
     position: v.position,
     price: v.ean && pricesByEan[v.ean]
-      ? pricesByEan[v.ean].map((p): ProductPrice => ({ 
-          country_code: p.country_code, 
+      ? pricesByEan[v.ean].map((p): ProductPrice => ({
+          country_code: p.country_code,
           price: p.price,
           ean_reference: v.ean
         }))
+      : null,
+    buyprice: v.ean && v.ean in buypricesByEan
+      ? buypricesByEan[v.ean]
       : null,
   }));
 

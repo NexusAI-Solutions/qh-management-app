@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      buyprice: {
+        Row: {
+          buyprice: number | null
+          created_at: string
+          ean_reference: string
+          id: number
+        }
+        Insert: {
+          buyprice?: number | null
+          created_at?: string
+          ean_reference: string
+          id?: number
+        }
+        Update: {
+          buyprice?: number | null
+          created_at?: string
+          ean_reference?: string
+          id?: number
+        }
+        Relationships: []
+      }
       channel: {
         Row: {
           api_credentials: string | null
@@ -113,15 +134,7 @@ export type Database = {
           price?: number | null
           updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "price_ean_reference_fkey"
-            columns: ["ean_reference"]
-            isOneToOne: false
-            referencedRelation: "variant"
-            referencedColumns: ["ean"]
-          },
-        ]
+        Relationships: []
       }
       product: {
         Row: {

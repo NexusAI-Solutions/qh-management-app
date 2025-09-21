@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -11,6 +11,41 @@ import { toast } from "sonner"
 import { Save, Loader2, CheckCircle, AlertCircle, AlertTriangle } from "lucide-react"
 
 const MARGIN = 30 // Minimum acceptable margin percentage
+const DEFAULT_BUYPRICE = 0 // Default buyprice when none is available
+
+// Helper function to safely calculate margin
+const calculateMargin = (sellPrice: number | null, buyPrice: number): number => {
+  if (!sellPrice || sellPrice <= 0 || buyPrice <= 0) {
+    return 0
+  }
+  return ((sellPrice - buyPrice) / buyPrice) * 100
+}
+
+// Helper function to initialize price data for a variant
+const initializePriceDataForVariant = (variant: ProductVariant): PriceData => {
+  const buyPrice = variant.buyprice ?? DEFAULT_BUYPRICE
+
+  const initialPrices: Record<string, number | null> = {}
+  const initialMargins: Record<string, number> = {}
+
+  countries.forEach((country) => {
+    const existingPrice = variant.price?.find(p =>
+      p.country_code?.toLowerCase() === country.code.toLowerCase()
+    )
+    const price = existingPrice?.price ?? null
+
+    initialPrices[country.code] = price
+    initialMargins[country.code] = calculateMargin(price, buyPrice)
+  })
+
+  return {
+    variantId: variant.id,
+    buyPrice,
+    prices: initialPrices,
+    margins: initialMargins,
+    hasChanges: false,
+  }
+}
 
 interface PriceData {
   variantId: number
@@ -29,44 +64,28 @@ const countries = [
 
 export function PriceManagementTable({ variants }: { variants: ProductVariant[] }) {
   const [priceData, setPriceData] = useState<PriceData[]>(
-    variants.map((variant) => {
-      const buyPrice = 125.0
-
-      // Initialize prices from ProductVariant's price array or use defaults
-      const initialPrices: Record<string, number | null> = {}
-      const initialMargins: Record<string, number> = {}
-
-      countries.forEach((country) => {
-        // Try to find existing price for this country from variant.price array
-        const existingPrice = variant.price?.find(p =>
-          p.country_code?.toLowerCase() === country.code.toLowerCase()
-        )
-        const price = existingPrice?.price ?? null
-
-        initialPrices[country.code] = price
-        initialMargins[country.code] = price && price > 0 ? ((price - buyPrice) / buyPrice) * 100 : 0
-      })
-
-      return {
-        variantId: variant.id,
-        buyPrice,
-        prices: initialPrices,
-        margins: initialMargins,
-        hasChanges: false,
-      }
-    }),
+    variants.map(initializePriceDataForVariant)
   )
 
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'success' | 'error'>('idle')
   const [showMarginDialog, setShowMarginDialog] = useState(false)
   const [lowMarginVariants, setLowMarginVariants] = useState<Array<{variant: ProductVariant, margin: number, country: string}>>([])
 
+  // Memoize initial price data to avoid unnecessary recalculations
+  const initialPriceData = useMemo(() => {
+    return variants.map(initializePriceDataForVariant)
+  }, [variants])
+
+  // Update price data when variants change (for data refresh functionality)
+  useEffect(() => {
+    setPriceData(initialPriceData)
+  }, [initialPriceData])
 
   const updatePrice = (variantId: number, countryCode: string, price: number | null) => {
     setPriceData((prev) =>
       prev.map((data) => {
         if (data.variantId === variantId) {
-          const newMargin = price && price > 0 ? ((price - data.buyPrice) / data.buyPrice) * 100 : 0
+          const newMargin = calculateMargin(price, data.buyPrice)
           return {
             ...data,
             prices: { ...data.prices, [countryCode]: price },
@@ -310,7 +329,9 @@ export function PriceManagementTable({ variants }: { variants: ProductVariant[] 
                         <div className="text-xs text-muted-foreground">
                           <span className="hidden sm:inline">Inkoopprijs: </span>
                           <span className="sm:hidden">Inkoop: </span>
-                          <span className="font-medium">€{variantPriceData?.buyPrice.toFixed(2) || "0.00"}</span>
+                          <span className={`font-medium ${(variantPriceData?.buyPrice || 0) === 0 ? 'text-red-600' : ''}`}>
+                            {(variantPriceData?.buyPrice || 0) === 0 ? 'Niet beschikbaar' : `€${variantPriceData?.buyPrice.toFixed(2)}`}
+                          </span>
                         </div>
                       </div>
                     </td>
