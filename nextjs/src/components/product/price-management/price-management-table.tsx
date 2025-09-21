@@ -21,10 +21,10 @@ interface PriceData {
 }
 
 const countries = [
-  { code: "nl", name: "Netherlands", currency: "EUR", flag: "🇳🇱" },
-  { code: "de", name: "Germany", currency: "EUR", flag: "🇩🇪" },
-  { code: "fr", name: "France", currency: "EUR", flag: "🇫🇷" },
-  { code: "es", name: "Spain", currency: "EUR", flag: "🇪🇸" },
+  { code: "nl", name: "Nederland", currency: "EUR", flag: "🇳🇱" },
+  { code: "de", name: "Duitsland", currency: "EUR", flag: "🇩🇪" },
+  { code: "fr", name: "Frankrijk", currency: "EUR", flag: "🇫🇷" },
+  { code: "es", name: "Spanje", currency: "EUR", flag: "🇪🇸" },
 ]
 
 export function PriceManagementTable({ variants }: { variants: ProductVariant[] }) {
@@ -370,7 +370,7 @@ export function PriceManagementTable({ variants }: { variants: ProductVariant[] 
             Lage marges gedetecteerd
           </DialogTitle>
           <DialogDescription>
-            De volgende prijzen hebben een marge onder de {MARGIN}%. Weet je zeker dat je wilt doorgaan?
+            GA JE VOOR GOUD, OF WAT? De volgende prijzen hebben een marge onder de {MARGIN}%. Weet je zeker dat je wilt doorgaan?
           </DialogDescription>
         </DialogHeader>
 
@@ -396,7 +396,7 @@ export function PriceManagementTable({ variants }: { variants: ProductVariant[] 
           <Button variant="outline" onClick={handleCancelSave}>
             Annuleren
           </Button>
-          <Button onClick={handleConfirmSave} className="bg-amber-600 hover:bg-amber-700">
+          <Button onClick={handleConfirmSave} variant="destructive">
             Toch opslaan
           </Button>
         </DialogFooter>
