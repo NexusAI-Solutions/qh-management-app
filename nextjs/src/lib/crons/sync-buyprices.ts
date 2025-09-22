@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '@/lib/supabase/types';
-import { createPicqerAPIFromEnv, PicqerAPI } from './picqer';
+import { createPicqerAPIFromEnv, PicqerAPI } from '../apis/picqer';
 
 const supabase = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -1,6 +1,6 @@
 // app/api/airtable/route.ts
 import { NextResponse } from "next/server";
-import { listRecords } from "@/lib/airtable";
+import { listRecords } from "@/lib/apis/airtable";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);

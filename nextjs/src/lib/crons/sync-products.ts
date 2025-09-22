@@ -7,7 +7,7 @@ import {
   LightspeedImage,
   LightspeedVariant,
   LightspeedAPI
-} from './lightspeed';
+} from '../apis/lightspeed';
 
 const supabase = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

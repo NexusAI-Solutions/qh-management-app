@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { syncBuyprices } from '@/lib/sync-buyprices';
+import { syncBuyprices } from '@/lib/crons/sync-buyprices';
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');

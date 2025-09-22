@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerAdminClient } from "@/lib/supabase/serverAdminClient";
 import { encryption } from '@/lib/encryption';
-import { LightspeedAPI } from '@/lib/lightspeed';
+import { LightspeedAPI } from '@/lib/apis/lightspeed';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
