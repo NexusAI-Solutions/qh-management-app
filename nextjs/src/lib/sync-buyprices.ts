@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Database, TablesInsert } from '@/lib/supabase/types';
+import { Database } from '@/lib/supabase/types';
 import { createPicqerAPIFromEnv, PicqerAPI } from './picqer';
 
 const supabase = createClient<Database>(
@@ -7,8 +7,6 @@ const supabase = createClient<Database>(
   process.env.PRIVATE_SUPABASE_SERVICE_KEY!
 );
 
-// Type definitions
-type SupabaseBuyprice = TablesInsert<'buyprice'>;
 
 export interface BuypriceSyncResult {
   success: boolean;
@@ -16,7 +14,7 @@ export interface BuypriceSyncResult {
   successfulLookups: number;
   failedLookups: number;
   multipleResultsCount: number;
-  insertedBuyprices: number;
+  updatedVariants: number;
   skippedNoPrice: number;
   skippedNoResults: number;
   errors: string[];
@@ -24,86 +22,93 @@ export interface BuypriceSyncResult {
 }
 
 /**
- * Get all unique EANs from the variant table
+ * Get all variants with EANs for buyprice sync
  */
-async function getAllVariantEANs(): Promise<string[]> {
+async function getAllVariantsWithEANs(): Promise<Array<{ id: number; ean: string }>> {
   const { data: variants, error } = await supabase
     .from('variant')
-    .select('ean')
+    .select('id, ean')
     .not('ean', 'is', null);
 
   if (error) {
     throw new Error(`Failed to fetch variant EANs: ${error.message}`);
   }
 
-  // Filter out null/empty EANs and get unique values
-  const uniqueEANs = [...new Set(
-    variants
-      .map(v => v.ean)
-      .filter((ean): ean is string => !!ean && ean.trim().length > 0)
-  )];
+  // Filter out null/empty EANs
+  const validVariants = variants
+    .filter((v): v is { id: number; ean: string } =>
+      !!v.ean && v.ean.trim().length > 0
+    );
 
-  return uniqueEANs;
+  return validVariants;
 }
 
 /**
- * Clear all records from the buyprice table
+ * Clear all buyprices from variant table (set to null)
  */
-async function clearBuypriceTable(): Promise<void> {
+async function clearVariantBuyprices(): Promise<void> {
   const { error } = await supabase
-    .from('buyprice')
-    .delete()
-    .neq('id', 0); // Delete all records
+    .from('variant')
+    .update({ buyprice: null })
+    .not('id', 'is', null); // Update all variants
 
   if (error) {
-    throw new Error(`Failed to clear buyprice table: ${error.message}`);
+    throw new Error(`Failed to clear variant buyprices: ${error.message}`);
   }
 }
 
 /**
- * Insert buyprices in batches
+ * Update variant buyprices in batches
  */
-async function insertBuyprices(buyprices: SupabaseBuyprice[]): Promise<number> {
-  if (buyprices.length === 0) {
+async function updateVariantBuyprices(updates: Array<{ id: number; buyprice: number }>): Promise<number> {
+  if (updates.length === 0) {
     return 0;
   }
 
-  const { error } = await supabase
-    .from('buyprice')
-    .insert(buyprices);
+  let successCount = 0;
 
-  if (error) {
-    throw new Error(`Failed to insert buyprices: ${error.message}`);
+  // Update variants individually for now (could be optimized with bulk operations)
+  for (const update of updates) {
+    const { error } = await supabase
+      .from('variant')
+      .update({ buyprice: update.buyprice })
+      .eq('id', update.id);
+
+    if (error) {
+      console.error(`Failed to update variant ${update.id} buyprice:`, error.message);
+    } else {
+      successCount++;
+    }
   }
 
-  return buyprices.length;
+  return successCount;
 }
 
 /**
- * Process EANs in batches to avoid overwhelming the API
+ * Process variants in batches to avoid overwhelming the API
  */
-async function processEANBatch(
-  eans: string[],
+async function processVariantBatch(
+  variants: Array<{ id: number; ean: string }>,
   picqerAPI: PicqerAPI,
   result: BuypriceSyncResult
-): Promise<SupabaseBuyprice[]> {
-  const buyprices: SupabaseBuyprice[] = [];
+): Promise<Array<{ id: number; buyprice: number }>> {
+  const variantUpdates: Array<{ id: number; buyprice: number }> = [];
 
-  for (const ean of eans) {
+  for (const variant of variants) {
     try {
-      console.log(`Processing EAN: ${ean}`);
+      console.log(`Processing variant ${variant.id} with EAN: ${variant.ean}`);
 
-      const searchResult = await picqerAPI.searchProductByEAN(ean);
+      const searchResult = await picqerAPI.searchProductByEAN(variant.ean);
 
       if (!searchResult.product) {
         result.skippedNoResults++;
-        console.log(`No results found for EAN: ${ean}`);
+        console.log(`No results found for EAN: ${variant.ean}`);
         continue;
       }
 
       if (searchResult.multipleResults) {
         result.multipleResultsCount++;
-        console.log(`Multiple results for EAN ${ean}, using first result`);
+        console.log(`Multiple results for EAN ${variant.ean}, using first result`);
       }
 
       const product = searchResult.product;
@@ -111,28 +116,28 @@ async function processEANBatch(
       // Check if fixedstockprice is available
       if (product.fixedstockprice === null || product.fixedstockprice === undefined) {
         result.skippedNoPrice++;
-        console.log(`No fixed stock price for EAN: ${ean}`);
+        console.log(`No fixed stock price for EAN: ${variant.ean}`);
         continue;
       }
 
-      // Create buyprice record
-      const buypriceRecord: SupabaseBuyprice = {
-        ean_reference: ean,
+      // Create variant update record
+      const variantUpdate = {
+        id: variant.id,
         buyprice: product.fixedstockprice
       };
 
-      buyprices.push(buypriceRecord);
+      variantUpdates.push(variantUpdate);
       result.successfulLookups++;
 
     } catch (error) {
       result.failedLookups++;
-      const errorMessage = `Failed to process EAN ${ean}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      const errorMessage = `Failed to process EAN ${variant.ean}: ${error instanceof Error ? error.message : 'Unknown error'}`;
       result.errors.push(errorMessage);
       console.error(errorMessage);
     }
   }
 
-  return buyprices;
+  return variantUpdates;
 }
 
 /**
@@ -147,7 +152,7 @@ export async function syncBuyprices(): Promise<BuypriceSyncResult> {
     successfulLookups: 0,
     failedLookups: 0,
     multipleResultsCount: 0,
-    insertedBuyprices: 0,
+    updatedVariants: 0,
     skippedNoPrice: 0,
     skippedNoResults: 0,
     errors: [],
@@ -160,38 +165,47 @@ export async function syncBuyprices(): Promise<BuypriceSyncResult> {
     // Initialize Picqer API
     const picqerAPI = createPicqerAPIFromEnv();
 
-    // Step 1: Clear existing buyprice table
-    console.log('Clearing existing buyprice table...');
-    await clearBuypriceTable();
+    // Step 1: Clear existing buyprices from variants
+    console.log('Clearing existing variant buyprices...');
+    await clearVariantBuyprices();
 
-    // Step 2: Get all EANs from variants
-    console.log('Fetching all variant EANs...');
-    const eans = await getAllVariantEANs();
-    result.totalEans = eans.length;
+    // Step 2: Get all variants with EANs
+    console.log('Fetching all variants with EANs...');
+    const variants = await getAllVariantsWithEANs();
+    result.totalEans = variants.length;
 
-    if (eans.length === 0) {
-      throw new Error('No EANs found in variant table');
+    if (variants.length === 0) {
+      throw new Error('No variants with EANs found');
     }
 
-    console.log(`Found ${eans.length} unique EANs to process`);
+    console.log(`Found ${variants.length} variants with EANs to process`);
 
-    // Step 3: Process EANs in batches
-    const BATCH_SIZE = 50; // Process 50 EANs at a time
-    const allBuyprices: SupabaseBuyprice[] = [];
+    // Step 3: Process variants in batches
+    const BATCH_SIZE = 50; // Process 50 variants at a time
 
-    for (let i = 0; i < eans.length; i += BATCH_SIZE) {
-      const batch = eans.slice(i, i + BATCH_SIZE);
-      console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(eans.length / BATCH_SIZE)}`);
+    for (let i = 0; i < variants.length; i += BATCH_SIZE) {
+      const batch = variants.slice(i, i + BATCH_SIZE);
+      const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(variants.length / BATCH_SIZE);
 
-      const batchBuyprices = await processEANBatch(batch, picqerAPI, result);
-      allBuyprices.push(...batchBuyprices);
+      console.log(`Processing batch ${batchNumber}/${totalBatches} (${batch.length} variants)`);
 
-      // Insert batch if we have records
-      if (batchBuyprices.length > 0) {
-        const insertedCount = await insertBuyprices(batchBuyprices);
-        result.insertedBuyprices += insertedCount;
-        console.log(`Inserted ${insertedCount} buyprice records for batch`);
+      // Log rate limit status before processing batch
+      const rateLimitStatus = picqerAPI.getRateLimitStatus();
+      console.log(`Picqer API status: ${rateLimitStatus.remaining}/${rateLimitStatus.limit} requests remaining`);
+
+      const variantUpdates = await processVariantBatch(batch, picqerAPI, result);
+
+      // Update variants if we have updates
+      if (variantUpdates.length > 0) {
+        const updatedCount = await updateVariantBuyprices(variantUpdates);
+        result.updatedVariants += updatedCount;
+        console.log(`Updated ${updatedCount} variant buyprices for batch ${batchNumber}`);
       }
+
+      // Log final rate limit status after batch
+      const finalRateLimitStatus = picqerAPI.getRateLimitStatus();
+      console.log(`Batch ${batchNumber} complete. API requests used: ${finalRateLimitStatus.requestCount - rateLimitStatus.requestCount}`);
     }
 
     // Calculate duration
@@ -199,13 +213,13 @@ export async function syncBuyprices(): Promise<BuypriceSyncResult> {
     result.duration = `${((endTime - startTime) / 1000).toFixed(2)}s`;
 
     // Determine overall success
-    result.success = result.errors.length === 0 || result.insertedBuyprices > 0;
+    result.success = result.errors.length === 0 || result.updatedVariants > 0;
 
     console.log('Buyprice sync completed:', {
-      totalEans: result.totalEans,
+      totalVariants: result.totalEans,
       successful: result.successfulLookups,
       failed: result.failedLookups,
-      inserted: result.insertedBuyprices,
+      updated: result.updatedVariants,
       duration: result.duration
     });
 

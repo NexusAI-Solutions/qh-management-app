@@ -24,31 +24,24 @@ type PriceMap = Record<
   Array<{ country_code: string | null; price: number | null }>
 >;
 
-type BuypriceMap = Record<string, number | null>;
 
 /* -------------------------------------------------- */
 /* Helper functions                                   */
 /* -------------------------------------------------- */
 
-async function fetchPricesAndBuyprices(
+async function fetchPrices(
   supabase: Awaited<ReturnType<typeof createSSRClient>>,
   variantEans: string[]
-): Promise<{ pricesByEan: PriceMap; buypricesByEan: BuypriceMap }> {
+): Promise<PriceMap> {
   if (variantEans.length === 0) {
-    return { pricesByEan: {}, buypricesByEan: {} };
+    return {};
   }
 
-  // Fetch prices and buyprices in parallel
-  const [priceResult, buypriceResult] = await Promise.all([
-    supabase
-      .from('price')
-      .select('ean_reference, country_code, price')
-      .in('ean_reference', variantEans),
-    supabase
-      .from('buyprice')
-      .select('ean_reference, buyprice')
-      .in('ean_reference', variantEans)
-  ]);
+  // Fetch prices
+  const priceResult = await supabase
+    .from('price')
+    .select('ean_reference, country_code, price')
+    .in('ean_reference', variantEans);
 
   // Process prices
   let pricesByEan: PriceMap = {};
@@ -66,20 +59,7 @@ async function fetchPricesAndBuyprices(
     console.error('Error fetching prices:', priceResult.error);
   }
 
-  // Process buyprices
-  let buypricesByEan: BuypriceMap = {};
-  if (!buypriceResult.error && buypriceResult.data && Array.isArray(buypriceResult.data)) {
-    buypricesByEan = buypriceResult.data.reduce((acc: BuypriceMap, row) => {
-      if (row && typeof row === 'object' && row.ean_reference) {
-        acc[row.ean_reference] = row.buyprice;
-      }
-      return acc;
-    }, {});
-  } else if (buypriceResult.error) {
-    console.error('Error fetching buyprices:', buypriceResult.error);
-  }
-
-  return { pricesByEan, buypricesByEan };
+  return pricesByEan;
 }
 
 /* -------------------------------------------------- */
@@ -115,7 +95,7 @@ export async function GET(
       title,
       active_channel_ids,
       product_image(id, url, position),
-      variant(id, title, ean, position),
+      variant(id, title, ean, position, buyprice),
       content(title, description, content, locale)
     `,
     )
@@ -144,7 +124,7 @@ export async function GET(
     .map((v) => v.ean)
     .filter((ean): ean is string => !!ean);
 
-  const { pricesByEan, buypricesByEan } = await fetchPricesAndBuyprices(supabase, variantEans);
+  const pricesByEan = await fetchPrices(supabase, variantEans);
 
   /* ---------- helpers ---------- */
   const nlContent = productContent.find((c) => c.locale === 'NL');
@@ -177,9 +157,7 @@ export async function GET(
           ean_reference: v.ean
         }))
       : null,
-    buyprice: v.ean && v.ean in buypricesByEan
-      ? buypricesByEan[v.ean]
-      : null,
+    buyprice: v.buyprice,
   }));
 
   const content = productContent.map((c) => ({

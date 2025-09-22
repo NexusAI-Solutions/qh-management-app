@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       totalEans: result.totalEans,
       successfulLookups: result.successfulLookups,
       failedLookups: result.failedLookups,
-      insertedBuyprices: result.insertedBuyprices,
+      updatedVariants: result.updatedVariants,
       duration: result.duration,
       errorCount: result.errors.length
     });
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       successfulLookups: 0,
       failedLookups: 0,
       multipleResultsCount: 0,
-      insertedBuyprices: 0,
+      updatedVariants: 0,
       skippedNoPrice: 0,
       skippedNoResults: 0,
       errors: [errorMessage],

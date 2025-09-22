@@ -236,6 +236,7 @@ export type Database = {
       }
       variant: {
         Row: {
+          buyprice: number | null
           created_at: string
           ean: string | null
           id: number
@@ -245,6 +246,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          buyprice?: number | null
           created_at?: string
           ean?: string | null
           id?: number
@@ -254,6 +256,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          buyprice?: number | null
           created_at?: string
           ean?: string | null
           id?: number

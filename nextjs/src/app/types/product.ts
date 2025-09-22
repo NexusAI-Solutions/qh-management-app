@@ -30,10 +30,6 @@ export interface ProductPrice {
   ean_reference: string | null;
 }
 
-export interface ProductBuyprice {
-  ean_reference: string;
-  buyprice: number | null;
-}
 
 export interface ProductContent {
   title: string | null;
