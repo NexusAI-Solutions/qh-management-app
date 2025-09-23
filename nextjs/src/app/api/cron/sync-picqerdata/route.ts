@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { syncBuyprices } from '@/lib/crons/sync-buyprices';
+import { syncPicqerData } from '@/lib/crons/sync-picqerdata';
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -8,8 +8,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    console.log('Buyprice sync cron job started');
-    const result = await syncBuyprices();
+    console.log('Picqer sync cron job started');
+    const result = await syncPicqerData();
 
     // Log summary
     console.log('Buyprice sync cron job completed:', {
@@ -35,11 +35,11 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    console.error('Buyprice sync cron job failed:', errorMessage);
+    console.error('Picqer sync cron job failed:', errorMessage);
 
     return NextResponse.json({
       success: false,
-      error: 'Buyprice sync failed',
+      error: 'Picqer data sync failed',
       details: errorMessage,
       totalEans: 0,
       successfulLookups: 0,

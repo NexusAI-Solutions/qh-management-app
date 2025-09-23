@@ -1,117 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Line, LineChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { ShoppingCart, DollarSign, TrendingUp, Euro } from "lucide-react"
+import { ChartContainer, ChartTooltip } from "@/components/ui/chart"
+import { ShoppingCart, DollarSign, TrendingUp, Euro, Loader2, Tag } from "lucide-react"
 import { ProductVariant } from "@/app/types/product"
+import { AnalyticsResponse, ProductAnalyticsData } from "@/app/types/analytics"
 
-const variantData = {
-  Black: {
-    totalSales: 5420,
-    revenue: 1355000,
-    avgPrice: 249.99,
-    buyPrice: 125.0,
-    priceHistory: [
-      { month: "Jan", price: 245.99 },
-      { month: "Feb", price: 249.99 },
-      { month: "Mar", price: 249.99 },
-      { month: "Apr", price: 254.99 },
-      { month: "May", price: 249.99 },
-      { month: "Jun", price: 249.99 },
-      { month: "Jul", price: 249.99 },
-      { month: "Aug", price: 259.99 },
-      { month: "Sep", price: 249.99 },
-      { month: "Oct", price: 249.99 },
-      { month: "Nov", price: 239.99 },
-      { month: "Dec", price: 249.99 },
-    ],
-    salesHistory: [
-      { month: "Jan", sales: 420 },
-      { month: "Feb", sales: 380 },
-      { month: "Mar", sales: 450 },
-      { month: "Apr", sales: 520 },
-      { month: "May", sales: 480 },
-      { month: "Jun", sales: 550 },
-      { month: "Jul", sales: 620 },
-      { month: "Aug", sales: 580 },
-      { month: "Sep", sales: 490 },
-      { month: "Oct", sales: 460 },
-      { month: "Nov", sales: 510 },
-      { month: "Dec", sales: 570 },
-    ],
-  },
-  White: {
-    totalSales: 4180,
-    revenue: 1045000,
-    avgPrice: 249.99,
-    buyPrice: 125.0,
-    priceHistory: [
-      { month: "Jan", price: 245.99 },
-      { month: "Feb", price: 249.99 },
-      { month: "Mar", price: 249.99 },
-      { month: "Apr", price: 254.99 },
-      { month: "May", price: 249.99 },
-      { month: "Jun", price: 249.99 },
-      { month: "Jul", price: 249.99 },
-      { month: "Aug", price: 259.99 },
-      { month: "Sep", price: 249.99 },
-      { month: "Oct", price: 249.99 },
-      { month: "Nov", price: 239.99 },
-      { month: "Dec", price: 249.99 },
-    ],
-    salesHistory: [
-      { month: "Jan", sales: 320 },
-      { month: "Feb", sales: 290 },
-      { month: "Mar", sales: 350 },
-      { month: "Apr", sales: 380 },
-      { month: "May", sales: 360 },
-      { month: "Jun", sales: 400 },
-      { month: "Jul", sales: 420 },
-      { month: "Aug", sales: 390 },
-      { month: "Sep", sales: 340 },
-      { month: "Oct", sales: 330 },
-      { month: "Nov", sales: 370 },
-      { month: "Dec", sales: 410 },
-    ],
-  },
-  Silver: {
-    totalSales: 3247,
-    revenue: 811750,
-    avgPrice: 249.99,
-    buyPrice: 125.0,
-    priceHistory: [
-      { month: "Jan", price: 245.99 },
-      { month: "Feb", price: 249.99 },
-      { month: "Mar", price: 249.99 },
-      { month: "Apr", price: 254.99 },
-      { month: "May", price: 249.99 },
-      { month: "Jun", price: 249.99 },
-      { month: "Jul", price: 249.99 },
-      { month: "Aug", price: 259.99 },
-      { month: "Sep", price: 249.99 },
-      { month: "Oct", price: 249.99 },
-      { month: "Nov", price: 239.99 },
-      { month: "Dec", price: 249.99 },
-    ],
-    salesHistory: [
-      { month: "Jan", sales: 250 },
-      { month: "Feb", sales: 220 },
-      { month: "Mar", sales: 280 },
-      { month: "Apr", sales: 310 },
-      { month: "May", sales: 290 },
-      { month: "Jun", sales: 320 },
-      { month: "Jul", sales: 340 },
-      { month: "Aug", sales: 310 },
-      { month: "Sep", sales: 270 },
-      { month: "Oct", sales: 260 },
-      { month: "Nov", sales: 290 },
-      { month: "Dec", sales: 320 },
-    ],
-  },
-}
 
 interface Product {
   id: number
@@ -124,46 +22,76 @@ interface AnalyticsTabProps {
 }
 
 export function AnalyticsTab({ product }: AnalyticsTabProps) {
-  const [selectedVariant, setSelectedVariant] = useState(
-    product.variants[0]?.title || product.variants[0]?.id.toString() || ""
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
+    product.variants[0] || null
   )
+  const [analyticsData, setAnalyticsData] = useState<ProductAnalyticsData | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [showSales, setShowSales] = useState(true)
+  const [showQuantity, setShowQuantity] = useState(true)
 
-  // Try to find variant data by title first, then fallback to a default
-  const getVariantKey = (selectedValue: string): keyof typeof variantData => {
-    // Check if the selected value matches any of our hardcoded variant keys
-    if (selectedValue in variantData) {
-      return selectedValue as keyof typeof variantData
+  const fetchAnalytics = async (variant: ProductVariant) => {
+    if (!variant.ean) {
+      setError("Geen EAN beschikbaar voor deze variant")
+      setAnalyticsData(null)
+      return
     }
-    // Fallback to first available key
-    return Object.keys(variantData)[0] as keyof typeof variantData
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`/api/analytics/product/${variant.ean}`)
+      const data: AnalyticsResponse = await response.json()
+
+      if (data.success && data.data?.analytics) {
+        setAnalyticsData(data.data.analytics)
+      } else {
+        setError("Geen analytics data beschikbaar")
+        setAnalyticsData(null)
+      }
+    } catch {
+      setError("Fout bij ophalen analytics data")
+      setAnalyticsData(null)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const currentData = variantData[getVariantKey(selectedVariant)]
+  useEffect(() => {
+    if (selectedVariant) {
+      fetchAnalytics(selectedVariant)
+    }
+  }, [selectedVariant])
+
 
   // Get display value for variant in select
   const getVariantDisplayValue = (variant: ProductVariant): string => {
     return variant.title || `Variant ${variant.id}`
   }
 
-  // Get variant select value (prefer title, fallback to id)
-  const getVariantSelectValue = (variant: ProductVariant): string => {
-    return variant.title || variant.id.toString()
+  // Handle variant selection change
+  const handleVariantChange = (value: string) => {
+    const variant = product.variants.find(v => v.id.toString() === value)
+    setSelectedVariant(variant || null)
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Analytics</h2>
-          <p className="text-muted-foreground">Prestatie-inzichten per variant</p>
         </div>
-        <Select value={selectedVariant} onValueChange={setSelectedVariant}>
+        <Select
+          value={selectedVariant?.id.toString() || ""}
+          onValueChange={handleVariantChange}
+        >
           <SelectTrigger className="w-48">
             <SelectValue placeholder="Selecteer variant" />
           </SelectTrigger>
           <SelectContent>
             {product.variants.map((variant) => (
-              <SelectItem key={variant.id} value={getVariantSelectValue(variant)}>
+              <SelectItem key={variant.id} value={variant.id.toString()}>
                 {getVariantDisplayValue(variant)}
               </SelectItem>
             ))}
@@ -180,7 +108,9 @@ export function AnalyticsTab({ product }: AnalyticsTabProps) {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Totale Verkopen</p>
-                <p className="text-3xl font-bold">{currentData.totalSales.toLocaleString()}</p>
+                <p className="text-3xl font-bold">
+                  {loading ? <Loader2 className="h-8 w-8 animate-spin" /> : analyticsData?.period_summary.total_quantity?.toLocaleString() || "0"}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -189,12 +119,14 @@ export function AnalyticsTab({ product }: AnalyticsTabProps) {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-chart-2/10 rounded-lg">
-                <DollarSign className="h-6 w-6 text-chart-2" />
+              <div className="p-3 bg-chart-4/10 rounded-lg">
+                <Euro className="h-6 w-6 text-chart-4" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Omzet</p>
-                <p className="text-3xl font-bold">€{(currentData.revenue / 1000000).toFixed(1)}M</p>
+                <p className="text-3xl font-bold">
+                  {loading ? <Loader2 className="h-8 w-8 animate-spin" /> : `€${((analyticsData?.period_summary.total_sales || 0) / 1000).toFixed(1)}K`}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -208,7 +140,11 @@ export function AnalyticsTab({ product }: AnalyticsTabProps) {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Gem. Prijs</p>
-                <p className="text-3xl font-bold">€{currentData.avgPrice}</p>
+                <p className="text-3xl font-bold">
+                  {loading ? <Loader2 className="h-8 w-8 animate-spin" /> : analyticsData?.period_summary.total_quantity && analyticsData?.period_summary.total_sales
+                    ? `€${(analyticsData.period_summary.total_sales / analyticsData.period_summary.total_quantity).toFixed(2)}`
+                    : "€0.00"}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -217,73 +153,196 @@ export function AnalyticsTab({ product }: AnalyticsTabProps) {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-chart-4/10 rounded-lg">
-                <Euro className="h-6 w-6 text-chart-4" />
+              <div className="p-3 bg-chart-2/10 rounded-lg">
+                <Tag className="h-6 w-6 text-chart-2" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Inkoopprijs</p>
-                <p className="text-3xl font-bold">€{currentData.buyPrice}</p>
+                <p className="text-3xl font-bold">
+                  €{selectedVariant?.buyprice?.toFixed(2) || "0.00"}
+                </p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Gemiddelde Prijs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                price: {
-                  label: "Prijs (€)",
-                  color: "hsl(var(--chart-1))",
-                },
-              }}
-              className="h-80"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={currentData.priceHistory}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Line type="monotone" dataKey="price" stroke="var(--color-price)" strokeWidth={3} />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Gemiddelde Verkopen</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Verkopen en antallen per week</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Afgelopen 52 weken - {analyticsData?.period_start} tot {analyticsData?.period_end}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant={showSales ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowSales(!showSales)}
+                className="flex items-center gap-2"
+              >
+                <DollarSign className="h-4 w-4" />
+                Omzet
+              </Button>
+              <Button
+                variant={showQuantity ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowQuantity(!showQuantity)}
+                className="flex items-center gap-2"
+              >
+                <ShoppingCart className="h-4 w-4" />
+                Aantal
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="flex items-center justify-center h-80">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center h-80">
+              <div className="text-center">
+                <p className="text-muted-foreground">{error}</p>
+              </div>
+            </div>
+          ) : analyticsData?.weekly_sales.length && (showSales || showQuantity) ? (
             <ChartContainer
               config={{
                 sales: {
-                  label: "Verkopen",
+                  label: "Omzet (€)",
+                  color: "hsl(var(--chart-1))",
+                },
+                quantity: {
+                  label: "Aantal",
                   color: "hsl(var(--chart-2))",
                 },
               }}
-              className="h-80"
+              className="h-80 w-full"
             >
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={currentData.salesHistory}>
+                <LineChart
+                  data={analyticsData.weekly_sales.map((week, index) => ({
+                    weekLabel: `Week ${week.week}`,
+                    week: week.week,
+                    year: week.year,
+                    sales: week.sales,
+                    quantity: week.quantity,
+                    index: index + 1,
+                  }))}
+                  margin={{ top: 30, right: 80, left: 80, bottom: 30 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Line type="monotone" dataKey="sales" stroke="var(--color-sales)" strokeWidth={3} />
+                  <XAxis
+                    dataKey="index"
+                    tickFormatter={(value) => {
+                      const dataPoint = analyticsData.weekly_sales[value - 1];
+                      return dataPoint ? `W${dataPoint.week}` : '';
+                    }}
+                  />
+                  {showSales && (
+                    <YAxis
+                      yAxisId="sales"
+                      orientation="left"
+                      domain={['dataMin - (dataMax - dataMin) * 0.1', 'dataMax + (dataMax - dataMin) * 0.1']}
+                      allowDataOverflow={false}
+                      scale="linear"
+                      tickFormatter={(value) => `€${value.toFixed(0)}`}
+                    />
+                  )}
+                  {showQuantity && (
+                    <YAxis
+                      yAxisId="quantity"
+                      orientation="right"
+                      domain={['dataMin - (dataMax - dataMin) * 0.1', 'dataMax + (dataMax - dataMin) * 0.1']}
+                      allowDataOverflow={false}
+                      scale="linear"
+                      tickFormatter={(value) => value.toString()}
+                    />
+                  )}
+                  <ChartTooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="rounded-lg border bg-background p-2 shadow-sm">
+                            <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${1 + (showSales ? 1 : 0) + (showQuantity ? 1 : 0)}, 1fr)` }}>
+                              <div className="flex flex-col">
+                                <span className="text-[0.70rem] uppercase text-muted-foreground">
+                                  Week
+                                </span>
+                                <span className="font-bold">
+                                  {data.week} ({data.year})
+                                </span>
+                              </div>
+                              {showSales && (
+                                <div className="flex flex-col">
+                                  <span className="text-[0.70rem] uppercase text-muted-foreground">
+                                    Omzet
+                                  </span>
+                                  <span className="font-bold text-chart-1">
+                                    €{data.sales.toFixed(2)}
+                                  </span>
+                                </div>
+                              )}
+                              {showQuantity && (
+                                <div className="flex flex-col">
+                                  <span className="text-[0.70rem] uppercase text-muted-foreground">
+                                    Aantal
+                                  </span>
+                                  <span className="font-bold text-chart-2">
+                                    {data.quantity}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  {showSales && (
+                    <Line
+                      yAxisId="sales"
+                      type="monotone"
+                      dataKey="sales"
+                      stroke="var(--color-sales)"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  )}
+                  {showQuantity && (
+                    <Line
+                      yAxisId="quantity"
+                      type="monotone"
+                      dataKey="quantity"
+                      stroke="var(--color-quantity)"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  )}
                 </LineChart>
               </ResponsiveContainer>
             </ChartContainer>
-          </CardContent>
-        </Card>
-      </div>
+          ) : analyticsData?.weekly_sales.length && !showSales && !showQuantity ? (
+            <div className="flex items-center justify-center h-80">
+              <div className="text-center">
+                <p className="text-muted-foreground">Selecteer ten minste één datatype om de grafiek te bekijken</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-80">
+              <div className="text-center">
+                <p className="text-muted-foreground">Geen verkoop data beschikbaar</p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

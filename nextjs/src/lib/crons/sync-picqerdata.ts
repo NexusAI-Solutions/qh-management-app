@@ -44,23 +44,23 @@ async function getAllVariantsWithEANs(): Promise<Array<{ id: number; ean: string
 }
 
 /**
- * Clear all buyprices from variant table (set to null)
+ * Clear all buyprices and picqer_idproduct from variant table (set to null)
  */
-async function clearVariantBuyprices(): Promise<void> {
+async function clearVariantData(): Promise<void> {
   const { error } = await supabase
     .from('variant')
-    .update({ buyprice: null })
+    .update({ buyprice: null, picqer_idproduct: null })
     .not('id', 'is', null); // Update all variants
 
   if (error) {
-    throw new Error(`Failed to clear variant buyprices: ${error.message}`);
+    throw new Error(`Failed to clear variant data: ${error.message}`);
   }
 }
 
 /**
- * Update variant buyprices in batches
+ * Update variant data (buyprice and picqer_idproduct) in batches
  */
-async function updateVariantBuyprices(updates: Array<{ id: number; buyprice: number }>): Promise<number> {
+async function updateVariantData(updates: Array<{ id: number; buyprice: number; picqer_idproduct: number }>): Promise<number> {
   if (updates.length === 0) {
     return 0;
   }
@@ -71,11 +71,11 @@ async function updateVariantBuyprices(updates: Array<{ id: number; buyprice: num
   for (const update of updates) {
     const { error } = await supabase
       .from('variant')
-      .update({ buyprice: update.buyprice })
+      .update({ buyprice: update.buyprice, picqer_idproduct: update.picqer_idproduct })
       .eq('id', update.id);
 
     if (error) {
-      console.error(`Failed to update variant ${update.id} buyprice:`, error.message);
+      console.error(`Failed to update variant ${update.id} data:`, error.message);
     } else {
       successCount++;
     }
@@ -91,8 +91,8 @@ async function processVariantBatch(
   variants: Array<{ id: number; ean: string }>,
   picqerAPI: PicqerAPI,
   result: BuypriceSyncResult
-): Promise<Array<{ id: number; buyprice: number }>> {
-  const variantUpdates: Array<{ id: number; buyprice: number }> = [];
+): Promise<Array<{ id: number; buyprice: number; picqer_idproduct: number }>> {
+  const variantUpdates: Array<{ id: number; buyprice: number; picqer_idproduct: number }> = [];
 
   for (const variant of variants) {
     try {
@@ -123,7 +123,8 @@ async function processVariantBatch(
       // Create variant update record
       const variantUpdate = {
         id: variant.id,
-        buyprice: product.fixedstockprice
+        buyprice: product.fixedstockprice,
+        picqer_idproduct: product.idproduct
       };
 
       variantUpdates.push(variantUpdate);
@@ -143,7 +144,7 @@ async function processVariantBatch(
 /**
  * Main function to sync buyprices from Picqer
  */
-export async function syncBuyprices(): Promise<BuypriceSyncResult> {
+export async function syncPicqerData(): Promise<BuypriceSyncResult> {
   const startTime = Date.now();
 
   const result: BuypriceSyncResult = {
@@ -160,14 +161,14 @@ export async function syncBuyprices(): Promise<BuypriceSyncResult> {
   };
 
   try {
-    console.log('Starting buyprice sync...');
+    console.log('Starting buyprice and Picqer product ID sync...');
 
     // Initialize Picqer API
     const picqerAPI = createPicqerAPIFromEnv();
 
-    // Step 1: Clear existing buyprices from variants
-    console.log('Clearing existing variant buyprices...');
-    await clearVariantBuyprices();
+    // Step 1: Clear existing data from variants
+    console.log('Clearing existing variant data...');
+    await clearVariantData();
 
     // Step 2: Get all variants with EANs
     console.log('Fetching all variants with EANs...');
@@ -198,9 +199,9 @@ export async function syncBuyprices(): Promise<BuypriceSyncResult> {
 
       // Update variants if we have updates
       if (variantUpdates.length > 0) {
-        const updatedCount = await updateVariantBuyprices(variantUpdates);
+        const updatedCount = await updateVariantData(variantUpdates);
         result.updatedVariants += updatedCount;
-        console.log(`Updated ${updatedCount} variant buyprices for batch ${batchNumber}`);
+        console.log(`Updated ${updatedCount} variant data (buyprice + picqer_idproduct) for batch ${batchNumber}`);
       }
 
       // Log final rate limit status after batch
@@ -215,7 +216,7 @@ export async function syncBuyprices(): Promise<BuypriceSyncResult> {
     // Determine overall success
     result.success = result.errors.length === 0 || result.updatedVariants > 0;
 
-    console.log('Buyprice sync completed:', {
+    console.log('Buyprice and Picqer product ID sync completed:', {
       totalVariants: result.totalEans,
       successful: result.successfulLookups,
       failed: result.failedLookups,
@@ -233,7 +234,7 @@ export async function syncBuyprices(): Promise<BuypriceSyncResult> {
     const endTime = Date.now();
     result.duration = `${((endTime - startTime) / 1000).toFixed(2)}s`;
 
-    console.error('Buyprice sync failed:', errorMessage);
+    console.error('Buyprice and Picqer product ID sync failed:', errorMessage);
     return result;
   }
 }

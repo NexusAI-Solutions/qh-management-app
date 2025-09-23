@@ -9,7 +9,8 @@ const PROTECTED: RegExp[] = [
   /^\/api\/products(?:\/.*)?$/,
   /^\/api\/channels(?:\/.*)?$/,
   /^\/api\/products(?:\/.*)?$/, 
-  /^\/api\/prices(?:\/.*)?$/,           
+  /^\/api\/prices(?:\/.*)?$/,      
+  /^\/api\/analytics(?:\/.*)?$/,        
   // /^\/api\/private(?:\/.*)?$/,   // whole folder
   // /^\/api\/reports$/,            // another example
 ];

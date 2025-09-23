@@ -14,27 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      buyprice: {
-        Row: {
-          buyprice: number | null
-          created_at: string
-          ean_reference: string
-          id: number
-        }
-        Insert: {
-          buyprice?: number | null
-          created_at?: string
-          ean_reference: string
-          id?: number
-        }
-        Update: {
-          buyprice?: number | null
-          created_at?: string
-          ean_reference?: string
-          id?: number
-        }
-        Relationships: []
-      }
       channel: {
         Row: {
           api_credentials: string | null
@@ -240,6 +219,7 @@ export type Database = {
           created_at: string
           ean: string | null
           id: number
+          picqer_idproduct: number | null
           position: number | null
           product_id: number | null
           title: string | null
@@ -250,6 +230,7 @@ export type Database = {
           created_at?: string
           ean?: string | null
           id?: number
+          picqer_idproduct?: number | null
           position?: number | null
           product_id?: number | null
           title?: string | null
@@ -260,6 +241,7 @@ export type Database = {
           created_at?: string
           ean?: string | null
           id?: number
+          picqer_idproduct?: number | null
           position?: number | null
           product_id?: number | null
           title?: string | null

@@ -22,6 +22,7 @@ export interface ProductVariant {
   ean: string | null;
   position: number | null;
   buyprice?: number | null;
+  picqer_idproduct?: number | null;
 }
 
 export interface ProductPrice {
