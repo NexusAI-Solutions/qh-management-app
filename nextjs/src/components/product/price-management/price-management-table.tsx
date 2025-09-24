@@ -277,7 +277,7 @@ export function PriceManagementTable({ variants }: { variants: ProductVariant[] 
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg md:text-xl">Prijsbeheer</CardTitle>
+          <CardTitle>Prijsbeheer</CardTitle>
           <Button
             size="sm"
             className="text-xs md:text-sm ml-auto"

@@ -92,6 +92,7 @@ export function AnalyticsTab({ product }: AnalyticsTabProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
+          <p className="text-muted-foreground">Gegevens van de afgelopen 52 weken.</p>
         </div>
         <Select
           value={selectedVariant?.id.toString() || ""}
@@ -182,7 +183,7 @@ export function AnalyticsTab({ product }: AnalyticsTabProps) {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Verkopen en antallen per week</CardTitle>
+              <CardTitle>Verkopen per week</CardTitle>
               <p className="text-sm text-muted-foreground">
                 Afgelopen 52 weken - {analyticsData?.period_start} tot {analyticsData?.period_end}
               </p>
