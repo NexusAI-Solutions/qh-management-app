@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Database, TablesInsert } from '@/lib/supabase/types'; // Adjust path as needed
+import { TablesInsert, Database } from '@/lib/supabase/types';
 import {
   getLightspeedAPI,
   LightspeedProduct,

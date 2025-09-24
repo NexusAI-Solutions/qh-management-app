@@ -77,6 +77,17 @@ export function AnalyticsTab({ product }: AnalyticsTabProps) {
     setSelectedVariant(variant || null)
   }
 
+  // Calculate domains for both axes
+  const maxQuantity = analyticsData?.weekly_sales
+    ? Math.max(...analyticsData.weekly_sales.map(week => week.quantity))
+    : 0;
+  const quantityDomainMax = Math.ceil(maxQuantity * 1.2);
+
+  const maxSales = analyticsData?.weekly_sales
+    ? Math.max(...analyticsData.weekly_sales.map(week => week.sales))
+    : 0;
+  const salesDomainMax = Math.ceil(maxSales * 1.2);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -90,7 +101,7 @@ export function AnalyticsTab({ product }: AnalyticsTabProps) {
             <SelectValue placeholder="Selecteer variant" />
           </SelectTrigger>
           <SelectContent>
-            {product.variants.map((variant) => (
+            {product.variants.sort((a, b) => (a.position ?? 999) - (b.position ?? 999)).map((variant) => (
               <SelectItem key={variant.id} value={variant.id.toString()}>
                 {getVariantDisplayValue(variant)}
               </SelectItem>
@@ -240,14 +251,14 @@ export function AnalyticsTab({ product }: AnalyticsTabProps) {
                     dataKey="index"
                     tickFormatter={(value) => {
                       const dataPoint = analyticsData.weekly_sales[value - 1];
-                      return dataPoint ? `W${dataPoint.week}` : '';
+                      return dataPoint ? `${dataPoint.week}` : '';
                     }}
                   />
                   {showSales && (
                     <YAxis
                       yAxisId="sales"
                       orientation="left"
-                      domain={['dataMin - (dataMax - dataMin) * 0.1', 'dataMax + (dataMax - dataMin) * 0.1']}
+                      domain={[0, salesDomainMax]}
                       allowDataOverflow={false}
                       scale="linear"
                       tickFormatter={(value) => `€${value.toFixed(0)}`}
@@ -257,7 +268,7 @@ export function AnalyticsTab({ product }: AnalyticsTabProps) {
                     <YAxis
                       yAxisId="quantity"
                       orientation="right"
-                      domain={['dataMin - (dataMax - dataMin) * 0.1', 'dataMax + (dataMax - dataMin) * 0.1']}
+                      domain={[0, quantityDomainMax]}
                       allowDataOverflow={false}
                       scale="linear"
                       tickFormatter={(value) => value.toString()}

@@ -5,6 +5,7 @@ import type {
   ProductVariant,
   ProductContent,
   ProductPrice,
+  RepricerData,
   ApiProduct,
 } from '@/app/types/product';
 
@@ -60,6 +61,41 @@ async function fetchPrices(
   }
 
   return pricesByEan;
+}
+
+async function fetchRepricerData(
+  supabase: Awaited<ReturnType<typeof createSSRClient>>,
+  variantEans: string[]
+): Promise<Record<string, RepricerData>> {
+  if (variantEans.length === 0) {
+    return {};
+  }
+
+  const repricerResult = await supabase
+    .from('repricer')
+    .select('id, ean_reference, is_active, minimum_price, urls, created_at')
+    .in('ean_reference', variantEans);
+
+  let repricerByEan: Record<string, RepricerData> = {};
+  if (!repricerResult.error && repricerResult.data && Array.isArray(repricerResult.data)) {
+    repricerByEan = repricerResult.data.reduce((acc: Record<string, RepricerData>, row) => {
+      if (row && typeof row === 'object' && row.ean_reference) {
+        acc[row.ean_reference] = {
+          id: row.id,
+          ean_reference: row.ean_reference,
+          is_active: row.is_active,
+          minimum_price: row.minimum_price,
+          urls: row.urls,
+          created_at: row.created_at
+        };
+      }
+      return acc;
+    }, {});
+  } else if (repricerResult.error) {
+    console.error('Error fetching repricer data:', repricerResult.error);
+  }
+
+  return repricerByEan;
 }
 
 /* -------------------------------------------------- */
@@ -125,6 +161,7 @@ export async function GET(
     .filter((ean): ean is string => !!ean);
 
   const pricesByEan = await fetchPrices(supabase, variantEans);
+  const repricerByEan = await fetchRepricerData(supabase, variantEans);
 
   /* ---------- helpers ---------- */
   const nlContent = productContent.find((c) => c.locale === 'NL');
@@ -158,6 +195,7 @@ export async function GET(
         }))
       : null,
     buyprice: v.buyprice,
+    repricer: v.ean && repricerByEan[v.ean] ? repricerByEan[v.ean] : null,
   }));
 
   const content = productContent.map((c) => ({
@@ -179,12 +217,6 @@ export async function GET(
     mainImage,
     active_channel_ids,
     images,
-    stats: {
-      totalSales: 0,
-      averagePrice: 0,
-      buyPrice: 0,
-      averageMargin: 0,
-    },
     variants,
   };
 

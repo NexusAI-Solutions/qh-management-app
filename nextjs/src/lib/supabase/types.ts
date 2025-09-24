@@ -180,6 +180,33 @@ export type Database = {
           },
         ]
       }
+      repricer: {
+        Row: {
+          created_at: string
+          ean_reference: string | null
+          id: number
+          is_active: boolean | null
+          minimum_price: number | null
+          urls: Json | null
+        }
+        Insert: {
+          created_at?: string
+          ean_reference?: string | null
+          id?: number
+          is_active?: boolean | null
+          minimum_price?: number | null
+          urls?: Json | null
+        }
+        Update: {
+          created_at?: string
+          ean_reference?: string | null
+          id?: number
+          is_active?: boolean | null
+          minimum_price?: number | null
+          urls?: Json | null
+        }
+        Relationships: []
+      }
       todo_list: {
         Row: {
           created_at: string

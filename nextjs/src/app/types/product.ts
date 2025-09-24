@@ -1,3 +1,5 @@
+import { Json } from '@/lib/supabase/types';
+
 // Type definitions
 export interface ProductData {
   id: number;
@@ -23,12 +25,22 @@ export interface ProductVariant {
   position: number | null;
   buyprice?: number | null;
   picqer_idproduct?: number | null;
+  repricer?: RepricerData | null;
 }
 
 export interface ProductPrice {
   country_code: string | null;
   price: number | null;
   ean_reference: string | null;
+}
+
+export interface RepricerData {
+  id: number;
+  ean_reference: string | null;
+  is_active: boolean | null;
+  minimum_price: number | null;
+  urls: Json;
+  created_at: string;
 }
 
 
@@ -47,7 +59,7 @@ export interface UpdateProductDetailsBody {
   locale?: string; // Optional locale, defaults to 'NL'
 }
 
-// API response type, also adds in the stats for now
+// API response type
 export interface ApiProduct {
   id: number;
   title: string;
@@ -57,6 +69,5 @@ export interface ApiProduct {
   images: ProductImage[];
   content: ProductContent[];
   active_channel_ids: string[];
-  stats: { totalSales: number; averagePrice: number; buyPrice: number; averageMargin: number };
   variants: ProductVariant[];
 }
