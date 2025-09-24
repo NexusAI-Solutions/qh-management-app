@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { ProductImage } from "@/app/types/product"
 import { useImageManager, type ImageItem } from "@/app/hooks/useImageManager"
+import { ImageLightbox } from "./image-lightbox"
 
 interface ImageManagerProps {
   productId: number
@@ -41,16 +42,17 @@ function DeleteButton({ onDelete, isVisible, isDisabled }: {
   )
 }
 
-function ImageGridItem({ 
-  image, 
-  index, 
-  isDragging, 
+function ImageGridItem({
+  image,
+  index,
+  isDragging,
   isDragOver,
   onDragStart,
   onDragOver,
   onDrop,
   onDragEnd,
-  onDelete
+  onDelete,
+  onImageClick
 }: {
   image: ImageItem
   index: number
@@ -61,24 +63,46 @@ function ImageGridItem({
   onDrop: (e: React.DragEvent) => void
   onDragEnd: () => void
   onDelete: () => void
+  onImageClick: () => void
 }) {
   const [isHovered, setIsHovered] = useState(false)
+  const [isDragStarted, setIsDragStarted] = useState(false)
+
+  const handleClick = () => {
+    // Only trigger click if we're not in the middle of a drag operation
+    if (!isDragStarted && !image.isUploading) {
+      onImageClick()
+    }
+  }
+
+  const handleDragStart = (e: React.DragEvent) => {
+    setIsDragStarted(true)
+    onDragStart(e)
+  }
+
+  const handleDragEnd = () => {
+    // Reset drag state after a short delay to prevent click
+    setTimeout(() => setIsDragStarted(false), 100)
+    onDragEnd()
+  }
 
   return (
     <div
       draggable={!image.isUploading}
-      onDragStart={onDragStart}
+      onDragStart={handleDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}
-      onDragEnd={onDragEnd}
+      onDragEnd={handleDragEnd}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onClick={handleClick}
       className={cn(
-        "relative cursor-move transition-all duration-200 aspect-square",
+        "relative transition-all duration-200 aspect-square",
         "border-2 border-gray-200 rounded-lg overflow-hidden",
         isDragging && "opacity-50 scale-95",
         isDragOver && "ring-2 ring-primary ring-offset-2",
-        image.isUploading && "opacity-50 cursor-wait"
+        image.isUploading ? "opacity-50 cursor-wait" : "cursor-pointer hover:scale-105",
+        !image.isUploading && "hover:border-primary/50"
       )}
     >
       <Image
@@ -222,21 +246,24 @@ function UploadArea({ onUpload, isDisabled }: {
 }
 
 // Main component
-export function ImageManager({ 
-  productId, 
-  initialImages = [], 
-  onImagesChange 
+export function ImageManager({
+  productId,
+  initialImages = [],
+  onImagesChange
 }: ImageManagerProps) {
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null)
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false)
+
   const {
     // State
     images,
     isLoading,
     uploadQueueLength,
-    
+
     // Image operations
     addImages,
     deleteImage,
-    
+
     // Drag and drop
     draggedIndex,
     dragOverIndex,
@@ -247,6 +274,27 @@ export function ImageManager({
   } = useImageManager({ productId, initialImages, onImagesChange })
 
   const hasReachedLimit = images.filter(img => img.isProductImage).length >= 8
+
+  // Lightbox functions
+  const openLightbox = (index: number) => {
+    setSelectedImageIndex(index)
+    setIsLightboxOpen(true)
+  }
+
+  const closeLightbox = () => {
+    setIsLightboxOpen(false)
+    setSelectedImageIndex(null)
+  }
+
+  const navigateImage = (direction: 'prev' | 'next') => {
+    if (selectedImageIndex === null) return
+
+    if (direction === 'prev' && selectedImageIndex > 0) {
+      setSelectedImageIndex(selectedImageIndex - 1)
+    } else if (direction === 'next' && selectedImageIndex < images.length - 1) {
+      setSelectedImageIndex(selectedImageIndex + 1)
+    }
+  }
 
   if (isLoading && images.length === 0) {
     return (
@@ -281,15 +329,24 @@ export function ImageManager({
                 onDrop={(e) => handleDrop(e, index)}
                 onDragEnd={resetDragState}
                 onDelete={() => deleteImage(image.id)}
+                onImageClick={() => openLightbox(index)}
               />
             ))}
           </div>
         </div>
       )}
 
-      <UploadArea 
-        onUpload={addImages} 
+      <UploadArea
+        onUpload={addImages}
         isDisabled={hasReachedLimit || uploadQueueLength > 0}
+      />
+
+      <ImageLightbox
+        images={images}
+        selectedIndex={selectedImageIndex}
+        isOpen={isLightboxOpen}
+        onClose={closeLightbox}
+        onNavigate={navigateImage}
       />
     </div>
   )

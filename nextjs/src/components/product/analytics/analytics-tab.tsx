@@ -28,7 +28,7 @@ export function AnalyticsTab({ product }: AnalyticsTabProps) {
   const [analyticsData, setAnalyticsData] = useState<ProductAnalyticsData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showSales, setShowSales] = useState(true)
+  const [showSales, setShowSales] = useState(false)
   const [showQuantity, setShowQuantity] = useState(true)
 
   const fetchAnalytics = async (variant: ProductVariant) => {
@@ -107,7 +107,7 @@ export function AnalyticsTab({ product }: AnalyticsTabProps) {
                 <ShoppingCart className="h-6 w-6 text-chart-1" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Totale Verkopen</p>
+                <p className="text-sm text-muted-foreground">Totale verkopen</p>
                 <p className="text-3xl font-bold">
                   {loading ? <Loader2 className="h-8 w-8 animate-spin" /> : analyticsData?.period_summary.total_quantity?.toLocaleString() || "0"}
                 </p>
@@ -139,7 +139,7 @@ export function AnalyticsTab({ product }: AnalyticsTabProps) {
                 <TrendingUp className="h-6 w-6 text-chart-3" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Gem. Prijs</p>
+                <p className="text-sm text-muted-foreground">Gem. verkoopprijs</p>
                 <p className="text-3xl font-bold">
                   {loading ? <Loader2 className="h-8 w-8 animate-spin" /> : analyticsData?.period_summary.total_quantity && analyticsData?.period_summary.total_sales
                     ? `€${(analyticsData.period_summary.total_sales / analyticsData.period_summary.total_quantity).toFixed(2)}`
