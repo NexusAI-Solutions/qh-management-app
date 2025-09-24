@@ -1,13 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 import { Database, TablesInsert } from '@/lib/supabase/types'; // Adjust path as needed
-import { 
-  getLightspeedAPI, 
-  LightspeedProduct, 
+import {
+  getLightspeedAPI,
+  LightspeedProduct,
   LightspeedBrand,
   LightspeedImage,
   LightspeedVariant,
   LightspeedAPI
 } from '../apis/lightspeed';
+import { checkProductOnAllChannels } from '../utils/channel-checker';
 
 const supabase = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -404,6 +405,53 @@ export async function syncProducts(): Promise<SyncResult> {
             }
           } else {
             console.log(`  - No variants found for product ${product.id}`);
+          }
+
+          // 6. Update active channel IDs based on product availability
+          console.log(`  - Checking product availability across channels...`);
+          try {
+            // Get the first variant's EAN for checking (most products have at least one variant)
+            const firstVariantEan = variants.find(v => v.ean)?.ean;
+
+            if (firstVariantEan) {
+              console.log(`    - Checking EAN ${firstVariantEan} on all channels...`);
+              const activeChannelIds = await checkProductOnAllChannels(firstVariantEan);
+
+              if (activeChannelIds.length > 0) {
+                console.log(`    - Product found on ${activeChannelIds.length} channels: [${activeChannelIds.join(', ')}]`);
+
+                // Update the product's active_channel_ids
+                const { error: channelUpdateError } = await supabase
+                  .from('product')
+                  .update({ active_channel_ids: activeChannelIds })
+                  .eq('id', supabaseProductId);
+
+                if (channelUpdateError) {
+                  console.error(`    - Failed to update active_channel_ids: ${channelUpdateError.message}`);
+                  errors.push(`Product ${product.id} channel update: ${channelUpdateError.message}`);
+                } else {
+                  console.log(`    - Successfully updated active_channel_ids`);
+                }
+              } else {
+                console.log(`    - Product not found on any channels, clearing active_channel_ids`);
+
+                // Clear active_channel_ids if product not found on any channel
+                const { error: channelUpdateError } = await supabase
+                  .from('product')
+                  .update({ active_channel_ids: [] })
+                  .eq('id', supabaseProductId);
+
+                if (channelUpdateError) {
+                  console.error(`    - Failed to clear active_channel_ids: ${channelUpdateError.message}`);
+                  errors.push(`Product ${product.id} channel clear: ${channelUpdateError.message}`);
+                }
+              }
+            } else {
+              console.log(`    - No EAN available for channel checking, skipping`);
+            }
+          } catch (channelError) {
+            console.error(`    - Error checking channels: ${channelError instanceof Error ? channelError.message : 'Unknown error'}`);
+            // Don't add to errors array as this shouldn't fail the entire sync
           }
 
           // Add small delay between products to avoid rate limits
