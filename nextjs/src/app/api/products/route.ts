@@ -1,11 +1,25 @@
 // app/api/products/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createSSRClient } from '@/lib/supabase/server'
-import type { ProductData } from '@/app/types/product'
+
+// Simple in-memory cache for brands (resets on server restart)
+let brandsCache: { data: string[], timestamp: number } | null = null
+const BRANDS_CACHE_TTL = 60 * 60 * 1000 // 1 hour in milliseconds
 
 // Additional type for brand query
 interface BrandData {
   brand: string | null;
+}
+
+// Type for the simplified query result
+interface ProductQueryResult {
+  id: number;
+  title: string | null;
+  brand: string | null;
+  product_image: Array<{
+    url: string;
+    position: number;
+  }>;
 }
 
 // Type for transformed product
@@ -28,54 +42,22 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '25')
 
-    let productIds: number[] = []
-    let useProductIdFilter = false
+    // Remove the separate variant query - we'll handle search in main query
 
-    // If we have a search term, first check if any variants match the EAN
-    if (search) {
-      // Search for products that have variants with matching EAN
-      const { data: variantData } = await supabase
-        .from('variant')
-        .select('product_id')
-        .ilike('ean', `%${search}%`)
-
-      if (variantData && variantData.length > 0) {
-        productIds = [...new Set(variantData.map(v => v.product_id).filter((id): id is number => id !== null))]
-        useProductIdFilter = true
-      }
-    }
-
-    // Build the main query
+    // Build the optimized main query with only needed data
     let query = supabase
       .from('product')
       .select(`
         id,
         title,
         brand,
-        active_channel_ids,
-        product_image(
-          id,
-          url,
-          position
-        ),
-        variant(
-          id,
-          title,
-          ean,
-          position
-        ),
-        content(*)
+        product_image!left(url, position)
       `)
 
-    // Apply search filter
+    // Apply search filter using efficient OR condition
     if (search) {
-      if (useProductIdFilter && productIds.length > 0) {
-        // Products that match either by title OR by variant EAN
-        query = query.or(`title.ilike.%${search}%,id.in.(${productIds.join(',')})`)
-      } else {
-        // Just search by title if no EAN matches found
-        query = query.ilike('title', `%${search}%`)
-      }
+      // Search both product title and variant EAN in single query
+      query = query.or(`title.ilike.%${search}%,variant.ean.ilike.%${search}%`)
     }
 
     if (brand && brand !== 'all') {
@@ -96,63 +78,60 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Transform the data and include matched EAN if applicable
-    const transformedProducts: TransformedProduct[] = (data as ProductData[])?.map((item: ProductData) => {
-      // Find the first image with position 1, or fallback to first image, or undefined
-      const primaryImage = item.product_image?.find(img => img.position === 1) 
+    // Transform the optimized data structure
+    const transformedProducts: TransformedProduct[] = data?.map((item: ProductQueryResult) => {
+      // Find the primary image (position 1) or first available image
+      const primaryImage = item.product_image?.find((img) => img.position === 1)
         || item.product_image?.[0]
-      
-      const product: TransformedProduct = {
+
+      return {
         id: item.id,
         title: item.title,
         brand: item.brand,
         image: primaryImage?.url,
       }
-
-      // If searching and the match was via EAN (not title), include the matched EAN
-      if (search && item.variant) {
-        const matchedVariant = item.variant.find(v => 
-          v.ean?.toLowerCase().includes(search.toLowerCase())
-        )
-        if (matchedVariant && !item.title?.toLowerCase().includes(search.toLowerCase())) {
-          product.matchedEan = matchedVariant.ean || undefined
-        }
-      }
-
-      return product
     }) || []
 
-    // Get total count with the same search conditions
+    // Get total count with the same optimized search conditions
     let countQuery = supabase
       .from('product')
       .select('id', { count: 'exact', head: true })
 
     if (search) {
-      if (useProductIdFilter && productIds.length > 0) {
-        countQuery = countQuery.or(`title.ilike.%${search}%,id.in.(${productIds.join(',')})`)
-      } else {
-        countQuery = countQuery.ilike('title', `%${search}%`)
-      }
+      // Use same search logic as main query
+      countQuery = countQuery.or(`title.ilike.%${search}%,variant.ean.ilike.%${search}%`)
     }
-    
+
     if (brand && brand !== 'all') {
       countQuery = countQuery.eq('brand', brand)
     }
 
     const { count: totalCount } = await countQuery
 
-    // Get all brands for filter
-    const { data: brandsData } = await supabase
-      .from('product')
-      .select('brand')
-      .not('brand', 'is', null)
-      .order('brand')
+    // Get brands with caching
+    let brands: string[] = []
+    const now = Date.now()
 
-    const brands: string[] = [...new Set(
-      (brandsData as BrandData[])
-        ?.map(item => item.brand)
-        .filter((b): b is string => b !== null)
-    )].sort()
+    if (brandsCache && (now - brandsCache.timestamp) < BRANDS_CACHE_TTL) {
+      // Use cached brands
+      brands = brandsCache.data
+    } else {
+      // Fetch fresh brands and cache them
+      const { data: brandsData } = await supabase
+        .from('product')
+        .select('brand')
+        .not('brand', 'is', null)
+        .order('brand')
+
+      brands = [...new Set(
+        (brandsData as BrandData[])
+          ?.map(item => item.brand)
+          .filter((b): b is string => b !== null)
+      )].sort()
+
+      // Cache the result
+      brandsCache = { data: brands, timestamp: now }
+    }
 
     return NextResponse.json({
       products: transformedProducts,

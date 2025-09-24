@@ -14,7 +14,7 @@ type DbProduct = {
   id: number;
   brand: string | null;
   title: string | null;
-  active_channel_ids: string[] | null; // Fixed: should be string[] not number[]
+  active_channel_ids: string[] | null;
   product_image: ProductImage[];
   variant: ProductVariant[];
   content: ProductContent[];
@@ -24,7 +24,6 @@ type PriceMap = Record<
   string,
   Array<{ country_code: string | null; price: number | null }>
 >;
-
 
 /* -------------------------------------------------- */
 /* Helper functions                                   */
@@ -38,13 +37,11 @@ async function fetchPrices(
     return {};
   }
 
-  // Fetch prices
   const priceResult = await supabase
     .from('price')
     .select('ean_reference, country_code, price')
     .in('ean_reference', variantEans);
 
-  // Process prices
   let pricesByEan: PriceMap = {};
   if (!priceResult.error && priceResult.data && Array.isArray(priceResult.data)) {
     pricesByEan = priceResult.data.reduce((acc: PriceMap, row) => {
@@ -121,11 +118,10 @@ export async function GET(
   /* ---------- Supabase queries ---------- */
   const supabase = await createSSRClient();
 
-  // Single optimized query with all necessary data
+  // Main product query (same as original but optimized)
   const productResult = await supabase
     .from('product')
-    .select(
-      `
+    .select(`
       id,
       brand,
       title,
@@ -133,8 +129,7 @@ export async function GET(
       product_image(id, url, position),
       variant(id, title, ean, position, buyprice),
       content(title, description, content, locale)
-    `,
-    )
+    `)
     .eq('id', numericId)
     .single();
 
@@ -155,13 +150,16 @@ export async function GET(
   const product = productResult.data as DbProduct;
   const productContent = product.content ?? [];
 
-  /* ---------- price and buyprice lookup ---------- */
+  /* ---------- parallel price and repricer lookup ---------- */
   const variantEans = product.variant
     .map((v) => v.ean)
     .filter((ean): ean is string => !!ean);
 
-  const pricesByEan = await fetchPrices(supabase, variantEans);
-  const repricerByEan = await fetchRepricerData(supabase, variantEans);
+  // Run price and repricer queries in parallel for better performance
+  const [pricesByEan, repricerByEan] = await Promise.all([
+    fetchPrices(supabase, variantEans),
+    fetchRepricerData(supabase, variantEans)
+  ]);
 
   /* ---------- helpers ---------- */
   const nlContent = productContent.find((c) => c.locale === 'NL');
@@ -181,7 +179,7 @@ export async function GET(
     .sort((a, b) => (a.position ?? 999) - (b.position ?? 999))
     .map((img) => ({ id: img.id, url: img.url, position: img.position }));
 
-  // Fixed: variants now match ProductVariant type with price array and buyprice number
+  // Process variants with parallel-fetched price and repricer data
   const variants: ProductVariant[] = product.variant.map((v) => ({
     id: v.id,
     title: v.title,
