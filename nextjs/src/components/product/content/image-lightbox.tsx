@@ -4,7 +4,6 @@ import { useEffect } from "react"
 import { Dialog, DialogContent, DialogOverlay, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
-import { cn } from "@/lib/utils"
 import Image from "next/image"
 import type { ImageItem } from "@/app/hooks/useImageManager"
 

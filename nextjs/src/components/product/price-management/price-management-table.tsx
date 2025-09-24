@@ -340,7 +340,7 @@ export function PriceManagementTable({ variants }: { variants: ProductVariant[] 
                         <div className="space-y-2 md:space-y-3">
                           <div className="space-y-1">
                             <div className="relative flex justify-center">
-                              <span className="absolute left-2 md:left-14 top-1/2 transform -translate-y-1/2 text-xs md:text-sm text-muted-foreground font-medium">
+                              <span className="absolute left-2 md:left-6 lg:left-14 top-1/2 transform -translate-y-1/2 text-xs md:text-sm text-muted-foreground font-medium">
                                 €
                               </span>
                               <Input
